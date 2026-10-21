@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Question, CandidateAssignment, ExamAttempt } from "@/db/schema";
 import { MleapsLogo } from "@/components/MleapsLogo";
-import { BellCurvePanel, CheckMark, CrossMark } from "@/components/SixSigmaVisuals";
+import { BellCurvePanel } from "@/components/SixSigmaVisuals";
 import { LiveExamArena } from "@/components/LiveExamArena";
 import { ScorecardView } from "@/components/ScorecardView";
 import { AdminDashboard } from "@/components/AdminDashboard";
@@ -21,6 +21,7 @@ import {
   Award,
   Clock,
   CircleCheck,
+  CircleX,
   Hourglass,
 } from "lucide-react";
 
@@ -69,7 +70,26 @@ export default function AssessmentPlatform() {
         fetch("/api/questions"),
         fetch("/api/assignments"),
       ]);
-      if (qRes.ok) setQuestions((await qRes.json()).questions || []);
+      if (qRes.ok) {
+        const qData = await qRes.json();
+        let loadedQuestions: Question[] = qData.questions || [];
+        if (loadedQuestions.length === 0) {
+          try {
+            const restoreRes = await fetch("/api/questions", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "reset_defaults" }),
+            });
+            if (restoreRes.ok) {
+              const restored = await restoreRes.json();
+              loadedQuestions = restored.questions || [];
+            }
+          } catch {
+            // ignore
+          }
+        }
+        setQuestions(loadedQuestions);
+      }
       if (aRes.ok) {
         const aData = await aRes.json();
         setAssignments(aData.assignments || []);
@@ -557,9 +577,9 @@ export default function AssessmentPlatform() {
                         <div className="flex items-start gap-3">
                           <div className="shrink-0 mt-0.5">
                             {verificationResult.allowed ? (
-                              <CheckMark className="w-6 h-6" />
+                              <CircleCheck className="w-6 h-6 text-emerald-600" />
                             ) : (
-                              <CrossMark className="w-6 h-6" />
+                              <CircleX className="w-6 h-6 text-rose-600" />
                             )}
                           </div>
                           <div className="flex-1 space-y-2">

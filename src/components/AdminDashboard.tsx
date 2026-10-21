@@ -1,13 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import {
-  Question,
-  CandidateAssignment,
-  ExamAttempt,
-} from "@/db/schema";
+import { Question, CandidateAssignment, ExamAttempt } from "@/db/schema";
 import { ScorecardView } from "./ScorecardView";
-import { AnimatedCheckIcon, AnimatedCrossIcon } from "./SixSigmaVisuals";
+import { CheckGlyph, CrossGlyph, Reveal, LuxeCard, CountUp, Magnetic } from "./Effects";
 import {
   Users,
   BookOpen,
@@ -18,13 +14,11 @@ import {
   Clock,
   Mail,
   Calendar,
-  CheckCircle2,
+  Check,
   AlertCircle,
   RefreshCw,
   Search,
   ExternalLink,
-  ShieldCheck,
-  Sparkles,
   Award,
   Eye,
   X,
@@ -52,8 +46,6 @@ export function AdminDashboard({
   const [activeTab, setActiveTab] = useState<AdminTab>("assignments");
   const [inspectingAttempt, setInspectingAttempt] =
     useState<ExamAttempt | null>(null);
-
-  // Toast feedback state
   const [toast, setToast] = useState<{
     type: "success" | "error";
     text: string;
@@ -61,17 +53,14 @@ export function AdminDashboard({
 
   const showToast = (text: string, type: "success" | "error" = "success") => {
     setToast({ text, type });
-    setTimeout(() => {
-      setToast((prev) => (prev?.text === text ? null : prev));
-    }, 4000);
+    setTimeout(() => setToast((p) => (p?.text === text ? null : p)), 4000);
   };
 
-  // --- TAB 1: CANDIDATE EMAIL & TIME PERIOD ASSIGNMENT STATE ---
   const toLocalDateTimeInput = (d: Date) => {
     const pad = (n: number) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
-      d.getDate()
-    )}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+      d.getHours()
+    )}:${pad(d.getMinutes())}`;
   };
 
   const [newCandidateName, setNewCandidateName] = useState("");
@@ -90,36 +79,26 @@ export function AdminDashboard({
     preset: "now_48h" | "now_7d" | "express_1h" | "tomorrow_24h"
   ) => {
     const now = new Date();
-    const hourMs = 3600 * 1000;
+    const h = 3600 * 1000;
     if (preset === "now_48h") {
       setNewValidFrom(toLocalDateTimeInput(new Date(now.getTime() - 5 * 60000)));
-      setNewValidUntil(
-        toLocalDateTimeInput(new Date(now.getTime() + 48 * hourMs))
-      );
+      setNewValidUntil(toLocalDateTimeInput(new Date(now.getTime() + 48 * h)));
     } else if (preset === "now_7d") {
       setNewValidFrom(toLocalDateTimeInput(new Date(now.getTime() - 5 * 60000)));
-      setNewValidUntil(
-        toLocalDateTimeInput(new Date(now.getTime() + 7 * 24 * hourMs))
-      );
+      setNewValidUntil(toLocalDateTimeInput(new Date(now.getTime() + 7 * 24 * h)));
     } else if (preset === "express_1h") {
       setNewValidFrom(toLocalDateTimeInput(new Date(now.getTime() - 2 * 60000)));
-      setNewValidUntil(
-        toLocalDateTimeInput(new Date(now.getTime() + 1 * hourMs))
-      );
-    } else if (preset === "tomorrow_24h") {
-      setNewValidFrom(
-        toLocalDateTimeInput(new Date(now.getTime() + 24 * hourMs))
-      );
-      setNewValidUntil(
-        toLocalDateTimeInput(new Date(now.getTime() + 48 * hourMs))
-      );
+      setNewValidUntil(toLocalDateTimeInput(new Date(now.getTime() + h)));
+    } else {
+      setNewValidFrom(toLocalDateTimeInput(new Date(now.getTime() + 24 * h)));
+      setNewValidUntil(toLocalDateTimeInput(new Date(now.getTime() + 48 * h)));
     }
   };
 
   const handleCreateAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCandidateName.trim() || !newCandidateEmail.trim()) {
-      showToast("Please provide both Candidate Name and Email.", "error");
+      showToast("Provide both a name and an email.", "error");
       return;
     }
     setIsCreatingAssignment(true);
@@ -133,23 +112,20 @@ export function AdminDashboard({
           validFrom: new Date(newValidFrom).toISOString(),
           validUntil: new Date(newValidUntil).toISOString(),
           durationMinutes: newDuration,
-          notes: newNotes.trim() || "Authorized by Administrator",
+          notes: newNotes.trim() || "Authorized by administrator",
         }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        showToast(data.error || "Failed to assign candidate", "error");
-      } else {
-        showToast(
-          `Assigned ${data.assignment.candidateEmail} for selected time window!`
-        );
+      if (!res.ok) showToast(data.error || "Failed to assign.", "error");
+      else {
+        showToast(`Assigned ${data.assignment.candidateEmail}.`);
         setNewCandidateName("");
         setNewCandidateEmail("");
         setNewNotes("");
         await onRefreshData();
       }
     } catch {
-      showToast("Network error while creating assignment.", "error");
+      showToast("Network error while assigning.", "error");
     } finally {
       setIsCreatingAssignment(false);
     }
@@ -166,31 +142,26 @@ export function AdminDashboard({
         body: JSON.stringify({ quickAction }),
       });
       if (res.ok) {
-        showToast("Updated candidate time window & authorization status!");
+        showToast("Window updated.");
         await onRefreshData();
-      } else {
-        showToast("Failed to update assignment.", "error");
-      }
+      } else showToast("Failed to update.", "error");
     } catch {
-      showToast("Error updating assignment.", "error");
+      showToast("Error updating.", "error");
     }
   };
 
   const handleDeleteAssignment = async (id: number, email: string) => {
     try {
-      const res = await fetch(`/api/assignments/${id}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(`/api/assignments/${id}`, { method: "DELETE" });
       if (res.ok) {
-        showToast(`Revoked exam access for ${email}.`);
+        showToast(`Revoked access for ${email}.`);
         await onRefreshData();
       }
     } catch {
-      showToast("Failed to revoke assignment.", "error");
+      showToast("Failed to revoke.", "error");
     }
   };
 
-  // --- TAB 2: QUESTION & ANSWER KEY CRUD STATE ---
   const [questionSearch, setQuestionSearch] = useState("");
   const [phaseFilter, setPhaseFilter] = useState("All");
   const [editingQuestion, setEditingQuestion] =
@@ -221,10 +192,9 @@ export function AdminDashboard({
       !editingQuestion.optionC?.trim() ||
       !editingQuestion.optionD?.trim()
     ) {
-      showToast("Please fill in the question stem and all 4 options.", "error");
+      showToast("Fill in the question and all four options.", "error");
       return;
     }
-
     setIsSavingQuestion(true);
     try {
       const isEdit = !!editingQuestion.id;
@@ -232,13 +202,11 @@ export function AdminDashboard({
         ? `/api/questions/${editingQuestion.id}`
         : "/api/questions";
       const method = isEdit ? "PUT" : "POST";
-
       const safeNumber =
         Number.isFinite(editingQuestion.questionNumber) &&
         (editingQuestion.questionNumber as number) > 0
           ? editingQuestion.questionNumber
           : questions.length + 1;
-
       const payload = {
         questionNumber: safeNumber,
         questionText: (editingQuestion.questionText || "").trim(),
@@ -252,7 +220,6 @@ export function AdminDashboard({
         explanation: (editingQuestion.explanation || "").trim(),
         dmaicPhase: editingQuestion.dmaicPhase || "Define",
       };
-
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
@@ -261,14 +228,14 @@ export function AdminDashboard({
       if (res.ok) {
         showToast(
           isEdit
-            ? `Updated Question #${editingQuestion.questionNumber} & Answer Key!`
-            : `Created new Question #${editingQuestion.questionNumber}!`
+            ? `Updated question #${safeNumber}.`
+            : `Created question #${safeNumber}.`
         );
         setEditingQuestion(null);
         await onRefreshData();
       } else {
         const err = await res.json();
-        showToast(err.error || "Failed to save question", "error");
+        showToast(err.error || "Failed to save.", "error");
       }
     } catch {
       showToast("Error saving question.", "error");
@@ -279,15 +246,13 @@ export function AdminDashboard({
 
   const handleDeleteQuestion = async (q: Question) => {
     try {
-      const res = await fetch(`/api/questions/${q.id}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(`/api/questions/${q.id}`, { method: "DELETE" });
       if (res.ok) {
-        showToast(`Deleted Question #${q.questionNumber}.`);
+        showToast(`Deleted question #${q.questionNumber}.`);
         await onRefreshData();
       }
     } catch {
-      showToast("Failed to delete question.", "error");
+      showToast("Failed to delete.", "error");
     }
   };
 
@@ -299,30 +264,27 @@ export function AdminDashboard({
         body: JSON.stringify({ action: "reset_defaults" }),
       });
       if (res.ok) {
-        showToast("Restored official 25 Six Sigma Green Belt questions!");
+        showToast("Restored the official 25 questions.");
         await onRefreshData();
       }
     } catch {
-      showToast("Failed to restore default questions.", "error");
+      showToast("Failed to restore.", "error");
     }
   };
 
-  // --- TAB 3: SCORES & ATTEMPTS FILTER STATE ---
   const [scoreSearch, setScoreSearch] = useState("");
 
-  // If inspecting a specific candidate's full scorecard
   if (inspectingAttempt) {
     return (
       <ScorecardView
         attempt={inspectingAttempt}
         questions={questions}
         onBack={() => setInspectingAttempt(null)}
-        backLabel="Back to Admin Command Center"
+        backLabel="Back to administration"
       />
     );
   }
 
-  // Compute KPI metrics
   const totalAttempts = attempts.length;
   const passedCount = attempts.filter((a) => a.passed).length;
   const passRate =
@@ -333,7 +295,6 @@ export function AdminDashboard({
           attempts.reduce((acc, a) => acc + a.percentage, 0) / totalAttempts
         )
       : 0;
-
   const now = new Date();
   const activeAssignmentsCount = assignments.filter((a) => {
     const f = new Date(a.validFrom);
@@ -364,158 +325,79 @@ export function AdminDashboard({
     );
   });
 
+  const kpis = [
+    { Icon: BookOpen, label: "Question bank", value: questions.length, sub: "40 min · 70% pass", suffix: "" },
+    { Icon: Users, label: "Assigned", value: assignments.length, sub: `${activeAssignmentsCount} active now`, suffix: "" },
+    { Icon: Award, label: "Attempts graded", value: totalAttempts, sub: `${passedCount} certified`, suffix: "" },
+    { Icon: BarChart3, label: "Cohort average", value: avgPercentage, sub: `${passRate}% pass rate`, suffix: "%" },
+  ];
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-slide-up">
-      {/* Floating Toast Alert */}
+    <div className="max-w-[1400px] mx-auto px-5 sm:px-8 py-10 space-y-8 relative z-10">
+      <div className="pointer-events-none fixed -top-52 -right-40 w-[600px] h-[600px] rounded-full bg-[#8b7bd8]/8 blur-[180px] anim-aurora-2" />
+
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 z-50 px-5 py-3.5 rounded-2xl border shadow-2xl flex items-center gap-3 animate-slide-up ${
+          className={`fixed bottom-6 right-6 z-50 px-5 py-3.5 rounded-2xl border glass flex items-center gap-3 anim-pop ${
             toast.type === "success"
-              ? "bg-[#141A2D]/95 border-emerald-400 text-emerald-200"
-              : "bg-[#141A2D]/95 border-rose-400 text-rose-200"
+              ? "border-emerald-400/35"
+              : "border-rose-400/35"
           }`}
         >
           {toast.type === "success" ? (
-            <AnimatedCheckIcon className="w-5 h-5" />
+            <CheckGlyph className="w-5 h-5" />
           ) : (
-            <AnimatedCrossIcon className="w-5 h-5" />
+            <CrossGlyph className="w-5 h-5" />
           )}
-          <span className="text-sm font-semibold">{toast.text}</span>
+          <span className="text-sm font-medium text-white">{toast.text}</span>
         </div>
       )}
 
-      {/* Executive Admin Header & KPI Strip */}
-      <div className="mleaps-glass rounded-3xl p-6 sm:p-8 border border-white/15 relative overflow-hidden">
-        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#F97316] via-[#FBBF24] to-[#7C3AED]" />
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+      <div>
+        <div className="flex flex-wrap items-end justify-between gap-4 mb-7">
           <div>
-            <span className="text-xs font-extrabold uppercase tracking-widest text-[#FBBF24] flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-[#F97316]" /> Examiner &
-              Administrator Control Center
-            </span>
-            <h1
-              style={{ fontFamily: "var(--font-outfit)" }}
-              className="text-2xl sm:text-3xl font-extrabold text-white mt-1"
-            >
-              Mleaps Consulting — Assessment Management Suite
+            <span className="kicker text-[#d9b45b]">Administration</span>
+            <h1 className="font-display text-3xl sm:text-[2.5rem] font-extrabold mt-2 leading-tight">
+              <span className="text-white">Assessment </span>
+              <span className="foil-text">control center</span>
             </h1>
           </div>
-
           <button
             type="button"
             onClick={onRefreshData}
-            className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-xs font-bold text-purple-100 flex items-center gap-2 transition-all cursor-pointer"
+            className="px-4 py-2.5 rounded-full glass-deep hairline-gold text-sm font-medium text-white flex items-center gap-2 hover:border-[#d9b45b]/40 transition-all cursor-pointer"
           >
-            <RefreshCw className="w-3.5 h-3.5 text-[#F97316]" />
-            <span>Sync Live Database</span>
+            <RefreshCw className="w-4 h-4 text-[#d9b45b]" /> Sync
           </button>
         </div>
 
-        {/* 4 Executive KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-[#070B16]/70 rounded-2xl p-4 border border-white/10 flex items-center justify-between">
-            <div>
-              <div className="text-xs text-purple-300/80">
-                Active Question Bank
-              </div>
-              <div
-                style={{ fontFamily: "var(--font-mono)" }}
-                className="text-2xl font-extrabold text-white mt-1"
-              >
-                {questions.length} MCQs
-              </div>
-              <div className="text-[11px] text-[#FBBF24] mt-0.5">
-                40 Min • 70% Pass Key
-              </div>
-            </div>
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#F97316]/20 to-[#F97316]/5 border border-[#F97316]/40 flex items-center justify-center text-[#F97316]">
-              <BookOpen className="w-6 h-6" />
-            </div>
-          </div>
-
-          <div className="bg-[#070B16]/70 rounded-2xl p-4 border border-white/10 flex items-center justify-between">
-            <div>
-              <div className="text-xs text-purple-300/80">
-                Assigned Candidates
-              </div>
-              <div
-                style={{ fontFamily: "var(--font-mono)" }}
-                className="text-2xl font-extrabold text-white mt-1"
-              >
-                {assignments.length} Total
-              </div>
-              <div className="text-[11px] text-emerald-400 mt-0.5">
-                {activeAssignmentsCount} Active Windows Now
-              </div>
-            </div>
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#7C3AED]/30 to-[#7C3AED]/10 border border-purple-400/40 flex items-center justify-center text-purple-300">
-              <Users className="w-6 h-6" />
-            </div>
-          </div>
-
-          <div className="bg-[#070B16]/70 rounded-2xl p-4 border border-white/10 flex items-center justify-between">
-            <div>
-              <div className="text-xs text-purple-300/80">
-                Completed Exam Attempts
-              </div>
-              <div
-                style={{ fontFamily: "var(--font-mono)" }}
-                className="text-2xl font-extrabold text-white mt-1"
-              >
-                {totalAttempts} Graded
-              </div>
-              <div className="text-[11px] text-purple-300 mt-0.5">
-                {passedCount} Certified Green Belt
-              </div>
-            </div>
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border border-emerald-400/40 flex items-center justify-center text-emerald-400">
-              <Award className="w-6 h-6" />
-            </div>
-          </div>
-
-          <div className="bg-[#070B16]/70 rounded-2xl p-4 border border-white/10 flex items-center justify-between">
-            <div>
-              <div className="text-xs text-purple-300/80">
-                Cohort Mean & Pass Rate
-              </div>
-              <div
-                style={{ fontFamily: "var(--font-mono)" }}
-                className="text-2xl font-extrabold text-[#FBBF24] mt-1"
-              >
-                {avgPercentage}% Avg
-              </div>
-              <div className="text-[11px] text-emerald-300 mt-0.5">
-                {passRate}% Pass Rate (≥18/25)
-              </div>
-            </div>
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-500/5 border border-amber-400/40 flex items-center justify-center text-[#FBBF24]">
-              <BarChart3 className="w-6 h-6" />
-            </div>
-          </div>
+          {kpis.map((k, i) => (
+            <Reveal key={k.label} delay={i * 70} y={18}>
+              <LuxeCard className="glass rounded-2xl p-5 h-full">
+                <div className="relative z-10 flex items-start justify-between">
+                  <div>
+                    <div className="kicker text-[#5d6881]">{k.label}</div>
+                    <div className="font-display text-3xl font-extrabold text-white mt-1.5">
+                      <CountUp to={k.value} suffix={k.suffix} />
+                    </div>
+                    <div className="text-xs text-[#6f7b94] mt-0.5">{k.sub}</div>
+                  </div>
+                  <div className="w-11 h-11 rounded-xl border border-[#d9b45b]/22 bg-[#d9b45b]/8 flex items-center justify-center text-[#d9b45b]">
+                    <k.Icon className="w-5 h-5" />
+                  </div>
+                </div>
+              </LuxeCard>
+            </Reveal>
+          ))}
         </div>
 
-        {/* 3-Tab Sliding Navigation Pill Bar */}
-        <div className="flex flex-wrap items-center gap-3 mt-7 pt-6 border-t border-white/10">
+        <div className="flex flex-wrap items-center gap-2 mt-7">
           {(
             [
-              {
-                id: "assignments",
-                label: "1. Assign Candidate Email & Time Window",
-                icon: Users,
-                badge: assignments.length,
-              },
-              {
-                id: "questions",
-                label: "2. Manage Questions & Answer Key",
-                icon: BookOpen,
-                badge: questions.length,
-              },
-              {
-                id: "scores",
-                label: "3. Candidate Scores & Answer Sheets",
-                icon: BarChart3,
-                badge: attempts.length,
-              },
+              { id: "assignments", label: "Candidates & windows", icon: Users, badge: assignments.length },
+              { id: "questions", label: "Questions & answers", icon: BookOpen, badge: questions.length },
+              { id: "scores", label: "Scores & sheets", icon: BarChart3, badge: attempts.length },
             ] as const
           ).map((t) => {
             const Icon = t.icon;
@@ -525,20 +407,17 @@ export function AdminDashboard({
                 key={t.id}
                 type="button"
                 onClick={() => setActiveTab(t.id)}
-                className={`px-5 py-3 rounded-2xl font-bold text-xs sm:text-sm flex items-center gap-2.5 transition-all duration-300 cursor-pointer ${
+                className={`sheen px-5 py-2.5 rounded-full font-medium text-sm flex items-center gap-2 transition-all cursor-pointer ${
                   isActive
-                    ? "bg-gradient-to-r from-[#F97316] to-[#7C3AED] text-white shadow-[0_8px_25px_rgba(249,115,22,0.35)] scale-[1.02]"
-                    : "bg-white/5 hover:bg-white/10 text-purple-200 border border-white/10"
+                    ? "bg-gradient-to-r from-[#f3dca4] to-[#a8822f] text-[#0a0f1e] shadow-[0_8px_24px_-10px_rgba(217,180,91,.8)]"
+                    : "glass-deep text-[#8b95ad] hover:text-white"
                 }`}
               >
                 <Icon className="w-4 h-4" />
                 <span>{t.label}</span>
                 <span
-                  style={{ fontFamily: "var(--font-mono)" }}
-                  className={`px-2 py-0.5 rounded-full text-xs ${
-                    isActive
-                      ? "bg-black/30 text-[#FBBF24]"
-                      : "bg-white/10 text-purple-200"
+                  className={`font-data px-1.5 py-0.5 rounded-full text-[11px] ${
+                    isActive ? "bg-[#0a0f1e]/20" : "bg-white/7"
                   }`}
                 >
                   {t.badge}
@@ -549,130 +428,107 @@ export function AdminDashboard({
         </div>
       </div>
 
-      {/* =====================================================================
-          TAB 1: ASSIGN CANDIDATE EMAIL & TIME PERIOD
-      ===================================================================== */}
+      {/* ===== TAB 1 ===== */}
       {activeTab === "assignments" && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-cross-morph">
-          {/* Left 5 Columns: Create New Email + Time Window Assignment */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 anim-pop">
           <div className="lg:col-span-5">
             <form
               onSubmit={handleCreateAssignment}
-              className="mleaps-glass rounded-3xl p-6 sm:p-7 border border-[#F97316]/40 space-y-5 sticky top-24"
+              className="glass rounded-[26px] p-7 space-y-5 lg:sticky lg:top-28 edge-gold"
             >
               <div>
-                <span className="text-xs font-bold uppercase tracking-widest text-[#F97316]">
-                  Time-Gated Email Authorization
-                </span>
-                <h2
-                  style={{ fontFamily: "var(--font-outfit)" }}
-                  className="text-xl font-bold text-white mt-0.5"
-                >
-                  Assign Candidate to Exam Window
+                <span className="kicker text-[#d9b45b]">New authorization</span>
+                <h2 className="font-display text-xl font-bold text-white mt-1.5">
+                  Invite a candidate
                 </h2>
-                <p className="text-xs text-purple-200/75 mt-1">
-                  Only the assigned email will be permitted to launch the
-                  assessment, and strictly within the selected start and end
-                  date/time window.
+                <p className="text-sm text-[#8b95ad] mt-1">
+                  Only this address may sit the exam, strictly inside the window
+                  you define.
                 </p>
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-purple-200 mb-1.5">
-                  Candidate Full Name *
+                <label className="kicker text-[#5d6881] block mb-2">
+                  Full name
                 </label>
                 <input
                   type="text"
                   required
                   value={newCandidateName}
                   onChange={(e) => setNewCandidateName(e.target.value)}
-                  placeholder="e.g., Rohan Deshmukh"
-                  className="w-full px-4 py-3 rounded-xl bg-[#070B16]/90 border border-white/15 text-white text-sm focus:outline-none focus:border-[#F97316]"
+                  placeholder="e.g. Rohan Deshmukh"
+                  className="w-full px-4 py-3 rounded-xl inset-dark text-sm focus:outline-none focus:border-[#d9b45b]/50 transition-colors"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-purple-200 mb-1.5">
-                  Authorized Candidate Email *
+                <label className="kicker text-[#5d6881] block mb-2">
+                  Authorized email
                 </label>
                 <input
                   type="email"
                   required
                   value={newCandidateEmail}
                   onChange={(e) => setNewCandidateEmail(e.target.value)}
-                  placeholder="e.g., rohan.deshmukh@company.com"
-                  className="w-full px-4 py-3 rounded-xl bg-[#070B16]/90 border border-white/15 text-white text-sm focus:outline-none focus:border-[#F97316]"
+                  placeholder="name@company.com"
+                  className="w-full px-4 py-3 rounded-xl inset-dark text-sm font-data focus:outline-none focus:border-[#d9b45b]/50 transition-colors"
                 />
               </div>
 
-              {/* Quick Time Window Presets */}
               <div>
-                <span className="block text-[11px] font-bold uppercase tracking-wider text-[#FBBF24] mb-2">
-                  Quick Time-Period Presets:
+                <span className="kicker text-[#5d6881] block mb-2">
+                  Quick windows
                 </span>
                 <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => applyTimePreset("now_48h")}
-                    className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-[#F97316]/20 border border-white/10 hover:border-[#F97316]/50 text-xs font-semibold text-purple-100 transition-all cursor-pointer text-left"
-                  >
-                    ⚡ Active Now (48 Hours)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyTimePreset("now_7d")}
-                    className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-[#F97316]/20 border border-white/10 hover:border-[#F97316]/50 text-xs font-semibold text-purple-100 transition-all cursor-pointer text-left"
-                  >
-                    📅 Active Now (7 Days)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyTimePreset("express_1h")}
-                    className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-[#F97316]/20 border border-white/10 hover:border-[#F97316]/50 text-xs font-semibold text-purple-100 transition-all cursor-pointer text-left"
-                  >
-                    ⏱️ 1-Hour Express Slot
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyTimePreset("tomorrow_24h")}
-                    className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-[#F97316]/20 border border-white/10 hover:border-[#F97316]/50 text-xs font-semibold text-purple-100 transition-all cursor-pointer text-left"
-                  >
-                    🔒 Schedule Tomorrow
-                  </button>
+                  {[
+                    { id: "now_48h", label: "Active · 48h" },
+                    { id: "now_7d", label: "Active · 7d" },
+                    { id: "express_1h", label: "Express · 1h" },
+                    { id: "tomorrow_24h", label: "Tomorrow" },
+                  ].map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => applyTimePreset(p.id as never)}
+                      className="px-3 py-2 rounded-xl inset-dark hover:border-[#d9b45b]/35 text-xs font-medium text-white transition-all cursor-pointer text-left"
+                    >
+                      {p.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-purple-200 mb-1.5">
-                    Window Opens (Valid From) *
+                  <label className="kicker text-[#5d6881] block mb-2">
+                    Opens
                   </label>
                   <input
                     type="datetime-local"
                     required
                     value={newValidFrom}
                     onChange={(e) => setNewValidFrom(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl bg-[#070B16]/90 border border-white/15 text-white text-xs focus:outline-none focus:border-[#F97316]"
+                    className="w-full px-3 py-2.5 rounded-xl inset-dark text-xs focus:outline-none focus:border-[#d9b45b]/50"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-purple-200 mb-1.5">
-                    Window Closes (Valid Until) *
+                  <label className="kicker text-[#5d6881] block mb-2">
+                    Closes
                   </label>
                   <input
                     type="datetime-local"
                     required
                     value={newValidUntil}
                     onChange={(e) => setNewValidUntil(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl bg-[#070B16]/90 border border-white/15 text-white text-xs focus:outline-none focus:border-[#F97316]"
+                    className="w-full px-3 py-2.5 rounded-xl inset-dark text-xs focus:outline-none focus:border-[#d9b45b]/50"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-purple-200 mb-1.5">
-                    Duration (Minutes)
+                  <label className="kicker text-[#5d6881] block mb-2">
+                    Minutes
                   </label>
                   <input
                     type="number"
@@ -680,19 +536,19 @@ export function AdminDashboard({
                     max={180}
                     value={newDuration}
                     onChange={(e) => setNewDuration(Number(e.target.value))}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#070B16]/90 border border-white/15 text-white text-sm focus:outline-none focus:border-[#F97316]"
+                    className="w-full px-3.5 py-2.5 rounded-xl inset-dark text-sm focus:outline-none focus:border-[#d9b45b]/50"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-purple-200 mb-1.5">
-                    Cohort / Batch Note
+                  <label className="kicker text-[#5d6881] block mb-2">
+                    Cohort note
                   </label>
                   <input
                     type="text"
                     value={newNotes}
                     onChange={(e) => setNewNotes(e.target.value)}
-                    placeholder="Green Belt Batch A"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#070B16]/90 border border-white/15 text-white text-sm focus:outline-none focus:border-[#F97316]"
+                    placeholder="Batch A"
+                    className="w-full px-3.5 py-2.5 rounded-xl inset-dark text-sm focus:outline-none focus:border-[#d9b45b]/50"
                   />
                 </div>
               </div>
@@ -700,38 +556,22 @@ export function AdminDashboard({
               <button
                 type="submit"
                 disabled={isCreatingAssignment}
-                className="w-full py-3.5 rounded-2xl font-extrabold text-sm text-slate-950 bg-gradient-to-r from-[#F97316] to-[#FBBF24] hover:brightness-110 shadow-[0_8px_25px_rgba(249,115,22,0.35)] flex items-center justify-center gap-2 transition-all cursor-pointer"
+                className="sheen w-full py-3.5 rounded-full font-bold text-sm text-[#0a0f1e] bg-gradient-to-r from-[#f3dca4] to-[#a8822f] flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60"
               >
                 <Plus className="w-4 h-4" />
-                <span>
-                  {isCreatingAssignment
-                    ? "Assigning Candidate..."
-                    : "Authorize Email & Schedule Window"}
-                </span>
+                {isCreatingAssignment ? "Assigning…" : "Authorize & schedule"}
               </button>
             </form>
           </div>
 
-          {/* Right 7 Columns: List of Assigned Candidates & Window Controls */}
-          <div className="lg:col-span-7 space-y-4">
-            <div className="mleaps-glass rounded-3xl p-6 border border-white/15">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3
-                    style={{ fontFamily: "var(--font-outfit)" }}
-                    className="text-lg font-bold text-white"
-                  >
-                    Authorized Candidate Roster ({assignments.length})
-                  </h3>
-                  <p className="text-xs text-purple-200/75">
-                    Manage active windows, extend deadlines, or click{" "}
-                    <strong className="text-[#FBBF24]">
-                      Test in Portal ↗
-                    </strong>{" "}
-                    to simulate logging in with that email.
-                  </p>
-                </div>
-              </div>
+          <div className="lg:col-span-7">
+            <div className="glass rounded-[26px] p-6">
+              <h3 className="font-display text-lg font-bold text-white mb-1">
+                Candidate roster ({assignments.length})
+              </h3>
+              <p className="text-xs text-[#6f7b94] mb-5">
+                Extend windows, allow retakes, or simulate a candidate sign-in.
+              </p>
 
               <div className="space-y-3.5">
                 {assignments.map((a, idx) => {
@@ -741,7 +581,6 @@ export function AdminDashboard({
                   const isUpcoming = !isCompleted && now < from;
                   const isExpired = !isCompleted && now > until;
                   const isActive = !isCompleted && now >= from && now <= until;
-
                   const matchingAttempt = attempts.find(
                     (att) =>
                       att.assignmentId === a.id ||
@@ -749,155 +588,129 @@ export function AdminDashboard({
                         a.candidateEmail.toLowerCase()
                   );
 
+                  const badge = isActive
+                    ? { t: "Active", c: "bg-emerald-400/10 text-emerald-300 border-emerald-400/30" }
+                    : isUpcoming
+                    ? { t: "Scheduled", c: "bg-amber-400/10 text-amber-300 border-amber-400/30" }
+                    : isExpired
+                    ? { t: "Expired", c: "bg-rose-400/10 text-rose-300 border-rose-400/30" }
+                    : {
+                        t: matchingAttempt
+                          ? `Completed · ${matchingAttempt.percentage}%`
+                          : "Completed",
+                        c: "bg-violet-400/10 text-violet-300 border-violet-400/30",
+                      };
+
                   return (
-                    <div
-                      key={a.id}
-                      style={{ animationDelay: `${idx * 50}ms` }}
-                      className="animate-slide-up bg-[#070B16]/75 rounded-2xl p-5 border border-white/10 hover:border-[#F97316]/40 transition-all space-y-3"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-2.5 flex-wrap">
-                            <h4 className="text-base font-bold text-white">
-                              {a.candidateName}
-                            </h4>
-                            {isActive && (
-                              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-400/40">
-                                ● ACTIVE WINDOW OPEN
+                    <Reveal key={a.id} delay={idx * 45} y={16}>
+                      <div className="inset-dark rounded-2xl p-5 space-y-3 hover:border-[#d9b45b]/25 transition-colors">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                              <h4 className="text-base font-bold text-white">
+                                {a.candidateName}
+                              </h4>
+                              <span
+                                className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${badge.c}`}
+                              >
+                                {badge.t}
                               </span>
-                            )}
-                            {isUpcoming && (
-                              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-400/40">
-                                ⏳ SCHEDULED (FUTURE)
-                              </span>
-                            )}
-                            {isExpired && (
-                              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-rose-500/20 text-rose-300 border border-rose-400/40">
-                                ✕ WINDOW EXPIRED
-                              </span>
-                            )}
-                            {isCompleted && (
-                              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-purple-500/30 text-purple-200 border border-purple-400/40">
-                                ✓ COMPLETED{" "}
-                                {matchingAttempt
-                                  ? `(${matchingAttempt.score}/${matchingAttempt.totalQuestions} • ${matchingAttempt.percentage}%)`
-                                  : ""}
-                              </span>
-                            )}
+                            </div>
+                            <div className="flex items-center gap-1.5 text-xs text-[#8b95ad] font-data mt-1">
+                              <Mail className="w-3.5 h-3.5 text-[#d9b45b]" />
+                              {a.candidateEmail}
+                            </div>
                           </div>
-
-                          <div className="flex items-center gap-2 text-xs text-[#FBBF24] font-mono mt-1">
-                            <Mail className="w-3.5 h-3.5" />
-                            <span>{a.candidateEmail}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              onTestCandidateEmail(
-                                a.candidateEmail,
-                                a.candidateName
-                              )
-                            }
-                            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#F97316] to-[#7C3AED] text-white text-xs font-bold flex items-center gap-1.5 hover:brightness-110 transition-all cursor-pointer shadow-sm"
-                          >
-                            <span>Test in Portal</span>
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDeleteAssignment(a.id, a.candidateEmail)
-                            }
-                            title="Revoke Access"
-                            className="p-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 transition-all cursor-pointer"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Time Period Details */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-white/[0.03] rounded-xl p-3 border border-white/5">
-                        <div className="flex items-center gap-2 text-purple-200">
-                          <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          <span>
-                            <strong>From:</strong> {from.toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-purple-200">
-                          <Clock className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                          <span>
-                            <strong>Until:</strong> {until.toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Admin Quick Window Actions */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                        <span className="text-[11px] text-purple-300/70">
-                          {a.notes || `Duration: ${a.durationMinutes} mins`}
-                        </span>
-
-                        <div className="flex flex-wrap items-center gap-2">
-                          {(isExpired || isUpcoming) && (
+                          <div className="flex items-center gap-2">
                             <button
                               type="button"
                               onClick={() =>
-                                handleQuickAssignmentAction(
-                                  a.id,
-                                  "activate_now_48h"
-                                )
+                                onTestCandidateEmail(a.candidateEmail, a.candidateName)
                               }
-                              className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 text-xs font-semibold transition-all cursor-pointer"
+                              className="sheen px-3 py-1.5 rounded-full bg-gradient-to-r from-[#f3dca4] to-[#a8822f] text-[#0a0f1e] text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
                             >
-                              ⚡ Activate Now (48h)
+                              Test <ExternalLink className="w-3.5 h-3.5" />
                             </button>
-                          )}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleDeleteAssignment(a.id, a.candidateEmail)
+                              }
+                              className="p-2 rounded-full bg-rose-400/10 hover:bg-rose-400/20 text-rose-300 border border-rose-400/25 transition-all cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleQuickAssignmentAction(a.id, "extend_24h")
-                            }
-                            className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 text-purple-200 text-xs font-semibold transition-all cursor-pointer"
-                          >
-                            +24h Window
-                          </button>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-white/[0.02] rounded-xl p-3 border border-white/5">
+                          <div className="flex items-center gap-2 text-[#8b95ad]">
+                            <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <span>
+                              <strong className="text-white/80">From:</strong>{" "}
+                              {from.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[#8b95ad]">
+                            <Clock className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                            <span>
+                              <strong className="text-white/80">Until:</strong>{" "}
+                              {until.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
 
-                          {isCompleted && (
-                            <>
-                              {matchingAttempt && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setInspectingAttempt(matchingAttempt)
-                                  }
-                                  className="px-2.5 py-1 rounded-lg bg-[#7C3AED]/40 hover:bg-[#7C3AED]/60 border border-purple-400/40 text-purple-100 text-xs font-semibold transition-all cursor-pointer flex items-center gap-1"
-                                >
-                                  <Eye className="w-3 h-3" /> View Score
-                                </button>
-                              )}
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-[11px] text-[#5d6881]">
+                            {a.notes || `Duration: ${a.durationMinutes} min`}
+                          </span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {(isExpired || isUpcoming) && (
                               <button
                                 type="button"
                                 onClick={() =>
-                                  handleQuickAssignmentAction(
-                                    a.id,
-                                    "reset_retake"
-                                  )
+                                  handleQuickAssignmentAction(a.id, "activate_now_48h")
                                 }
-                                className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 text-xs font-semibold transition-all cursor-pointer flex items-center gap-1"
+                                className="px-2.5 py-1 rounded-full bg-emerald-400/10 hover:bg-emerald-400/20 border border-emerald-400/30 text-emerald-300 text-xs font-medium transition-all cursor-pointer"
                               >
-                                <RotateCcw className="w-3 h-3" /> Allow Retake
+                                Activate 48h
                               </button>
-                            </>
-                          )}
+                            )}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleQuickAssignmentAction(a.id, "extend_24h")
+                              }
+                              className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[#8b95ad] text-xs font-medium transition-all cursor-pointer"
+                            >
+                              +24h
+                            </button>
+                            {isCompleted && (
+                              <>
+                                {matchingAttempt && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setInspectingAttempt(matchingAttempt)}
+                                    className="px-2.5 py-1 rounded-full bg-violet-400/10 hover:bg-violet-400/20 border border-violet-400/30 text-violet-300 text-xs font-medium flex items-center gap-1 transition-all cursor-pointer"
+                                  >
+                                    <Eye className="w-3 h-3" /> Score
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleQuickAssignmentAction(a.id, "reset_retake")
+                                  }
+                                  className="px-2.5 py-1 rounded-full bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 text-amber-300 text-xs font-medium flex items-center gap-1 transition-all cursor-pointer"
+                                >
+                                  <RotateCcw className="w-3 h-3" /> Retake
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    </Reveal>
                   );
                 })}
               </div>
@@ -906,81 +719,81 @@ export function AdminDashboard({
         </div>
       )}
 
-      {/* =====================================================================
-          TAB 2: MANAGE QUESTIONS & ANSWERS (FULL CRUD + QUICK KEY)
-      ===================================================================== */}
+      {/* ===== TAB 2 ===== */}
       {activeTab === "questions" && (
-        <div className="space-y-6 animate-cross-morph">
-          {/* Quick Reference Answer Key Strip (Matches Examiner Document) */}
-          <div className="mleaps-glass rounded-3xl p-6 border border-white/15">
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+        <div className="space-y-6 anim-pop">
+          <div className="glass rounded-[26px] p-6 edge-gold">
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
               <div>
-                <span className="text-xs font-bold uppercase tracking-widest text-[#FBBF24]">
-                  Examiner Quick Reference — Correct Options
-                </span>
-                <h3
-                  style={{ fontFamily: "var(--font-outfit)" }}
-                  className="text-lg font-bold text-white"
-                >
-                  Live Master Answer Key (Click any cell to edit question &
-                  answer)
+                <span className="kicker text-[#d9b45b]">Master key</span>
+                <h3 className="font-display text-lg font-bold text-white mt-1">
+                  Answer key — tap a cell to edit
                 </h3>
               </div>
-
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={handleRestoreDefaultQuestions}
-                  className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-xs font-semibold text-purple-200 flex items-center gap-1.5 transition-all cursor-pointer"
+                  className="px-3.5 py-2 rounded-full glass-deep hairline-gold text-xs font-medium text-[#8b95ad] hover:text-white flex items-center gap-1.5 transition-all cursor-pointer"
                 >
-                  <RotateCcw className="w-3.5 h-3.5 text-[#FBBF24]" />
-                  <span>Restore Default 25 Questions</span>
+                  <RotateCcw className="w-3.5 h-3.5 text-[#d9b45b]" /> Restore 25
                 </button>
-
-                <button
-                  type="button"
+                <Magnetic
                   onClick={openNewQuestionModal}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#F97316] to-[#FBBF24] text-slate-950 font-extrabold text-xs flex items-center gap-1.5 shadow-lg hover:brightness-110 transition-all cursor-pointer"
+                  className="sheen px-4 py-2 rounded-full bg-gradient-to-r from-[#f3dca4] to-[#a8822f] text-[#0a0f1e] font-bold text-xs flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>Add New Question</span>
-                </button>
+                  <Plus className="w-4 h-4" /> Add question
+                </Magnetic>
               </div>
             </div>
-
-            <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-13 gap-2">
-              {questions.map((q) => (
+            {questions.length === 0 ? (
+              <div className="p-8 rounded-2xl inset-dark border border-[#d9b45b]/30 bg-[#d9b45b]/5 text-center my-3">
+                <div className="font-display text-lg font-bold text-white mb-2">
+                  No questions currently loaded
+                </div>
+                <p className="text-xs text-[#8b95ad] mb-4">
+                  Click below to restore all 25 official Six Sigma Green Belt mock exam questions and answer keys.
+                </p>
                 <button
-                  key={q.id}
                   type="button"
-                  onClick={() => setEditingQuestion(q)}
-                  style={{ fontFamily: "var(--font-mono)" }}
-                  className="p-2 rounded-xl bg-[#070B16]/80 hover:bg-[#F97316]/25 border border-white/10 hover:border-[#F97316] text-center transition-all cursor-pointer group"
+                  onClick={handleRestoreDefaultQuestions}
+                  className="px-5 py-2.5 rounded-full bg-gradient-to-r from-[#f3dca4] via-[#d9b45b] to-[#a8822f] text-[#0a0f1e] font-bold text-xs inline-flex items-center gap-2 shadow-lg cursor-pointer"
                 >
-                  <div className="text-[10px] text-purple-300/70 group-hover:text-white">
-                    Q{q.questionNumber}
-                  </div>
-                  <div className="text-sm font-extrabold text-[#FBBF24] group-hover:scale-110 transition-transform">
-                    {q.correctOption}
-                  </div>
+                  <RotateCcw className="w-3.5 h-3.5" /> Restore 25 Questions
                 </button>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-13 gap-2">
+                {questions.map((q) => (
+                  <button
+                    key={q.id}
+                    type="button"
+                    onClick={() => setEditingQuestion(q)}
+                    className="p-2 rounded-xl inset-dark hover:border-[#d9b45b]/45 text-center transition-all cursor-pointer group"
+                  >
+                    <div className="text-[10px] text-[#5d6881]">
+                      Q{q.questionNumber}
+                    </div>
+                    <div className="font-display text-base font-bold foil-text group-hover:scale-110 transition-transform">
+                      {q.correctOption}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Search & DMAIC Phase Filter Bar */}
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="relative flex-1 min-w-[260px]">
-              <Search className="w-4 h-4 text-purple-300 absolute left-4 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-[#5d6881] absolute left-4 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={questionSearch}
                 onChange={(e) => setQuestionSearch(e.target.value)}
-                placeholder="Search questions, options, or Six Sigma concepts (e.g., DPMO, Cpk, FMEA, Poka-Yoke)..."
-                className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#141A2D]/90 border border-white/15 text-sm text-white focus:outline-none focus:border-[#F97316]"
+                placeholder="Search questions, options, concepts…"
+                className="w-full pl-11 pr-4 py-3 rounded-full glass-deep text-sm focus:outline-none focus:border-[#d9b45b]/45"
               />
             </div>
-
             <div className="flex flex-wrap items-center gap-2">
               {["All", "Define", "Measure", "Analyze", "Improve", "Control"].map(
                 (phase) => (
@@ -988,10 +801,10 @@ export function AdminDashboard({
                     key={phase}
                     type="button"
                     onClick={() => setPhaseFilter(phase)}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    className={`px-3.5 py-2 rounded-full text-xs font-medium transition-all cursor-pointer ${
                       phaseFilter === phase
-                        ? "bg-gradient-to-r from-[#F97316] to-[#7C3AED] text-white shadow-md"
-                        : "bg-white/5 text-purple-200 hover:bg-white/10 border border-white/10"
+                        ? "bg-gradient-to-r from-[#f3dca4] to-[#a8822f] text-[#0a0f1e] font-bold"
+                        : "glass-deep text-[#8b95ad] hover:text-white"
                     }`}
                   >
                     {phase}
@@ -1001,194 +814,161 @@ export function AdminDashboard({
             </div>
           </div>
 
-          {/* Questions List */}
           <div className="space-y-4">
-            {filteredQuestions.map((q) => (
-              <div
-                key={q.id}
-                className="mleaps-glass rounded-3xl p-6 border border-white/15 hover:border-[#F97316]/40 transition-all"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-4 mb-3">
-                  <div className="flex items-center gap-3">
-                    <span
-                      style={{ fontFamily: "var(--font-mono)" }}
-                      className="px-3 py-1 rounded-xl bg-gradient-to-r from-[#F97316] to-[#FBBF24] text-slate-950 font-extrabold text-xs"
-                    >
-                      Question #{q.questionNumber}
-                    </span>
-                    <span className="px-3 py-1 rounded-xl bg-[#7C3AED]/40 border border-purple-400/30 text-purple-200 font-bold text-xs">
-                      DMAIC Phase: {q.dmaicPhase}
-                    </span>
-                    <span
-                      style={{ fontFamily: "var(--font-mono)" }}
-                      className="px-3 py-1 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-bold text-xs"
-                    >
-                      Correct Answer: Option {q.correctOption}
-                    </span>
-                  </div>
+            {filteredQuestions.map((q, i) => (
+              <Reveal key={q.id} delay={Math.min(i * 30, 240)} y={16}>
+                <LuxeCard tilt={2.5} className="glass rounded-[24px] p-6">
+                  <div className="relative z-10">
+                    <div className="flex flex-wrap items-start justify-between gap-4 mb-3">
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <span className="font-data text-sm font-bold text-[#d9b45b]">
+                          #{q.questionNumber}
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-violet-400/10 border border-violet-400/25 text-violet-300 text-xs font-medium">
+                          {q.dmaicPhase}
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-400/10 border border-emerald-400/25 text-emerald-300 text-xs font-medium">
+                          Key: {q.correctOption}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingQuestion(q)}
+                          className="px-3.5 py-1.5 rounded-full bg-white/6 hover:bg-[#d9b45b] hover:text-[#0a0f1e] text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" /> Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteQuestion(q)}
+                          className="p-2 rounded-full bg-rose-400/10 hover:bg-rose-400/20 text-rose-300 border border-rose-400/25 transition-all cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setEditingQuestion(q)}
-                      className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-[#F97316] hover:text-slate-950 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      <span>Edit Question & Answer</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteQuestion(q)}
-                      className="p-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 transition-all cursor-pointer"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
+                    <h4 className="font-display text-lg font-bold text-white mb-4">
+                      {q.questionText}
+                    </h4>
 
-                <h4
-                  style={{ fontFamily: "var(--font-outfit)" }}
-                  className="text-lg font-bold text-white mb-4"
-                >
-                  {q.questionText}
-                </h4>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-4">
-                  {(
-                    [
-                      { letter: "A", text: q.optionA },
-                      { letter: "B", text: q.optionB },
-                      { letter: "C", text: q.optionC },
-                      { letter: "D", text: q.optionD },
-                    ] as const
-                  ).map((opt) => {
-                    const isCorrect =
-                      q.correctOption.toUpperCase() === opt.letter;
-                    return (
-                      <div
-                        key={opt.letter}
-                        className={`p-3 rounded-xl border text-xs sm:text-sm flex items-center justify-between gap-2 ${
-                          isCorrect
-                            ? "bg-emerald-500/20 border-emerald-400 text-white font-semibold"
-                            : "bg-[#070B16]/60 border-white/10 text-purple-200/80"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <span
-                            style={{ fontFamily: "var(--font-mono)" }}
-                            className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold text-xs ${
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-4">
+                      {(
+                        [
+                          { letter: "A", text: q.optionA },
+                          { letter: "B", text: q.optionB },
+                          { letter: "C", text: q.optionC },
+                          { letter: "D", text: q.optionD },
+                        ] as const
+                      ).map((opt) => {
+                        const isCorrect =
+                          q.correctOption.toUpperCase() === opt.letter;
+                        return (
+                          <div
+                            key={opt.letter}
+                            className={`p-3 rounded-xl border text-sm flex items-center justify-between gap-2 ${
                               isCorrect
-                                ? "bg-emerald-400 text-slate-950"
-                                : "bg-white/10 text-purple-200"
+                                ? "bg-emerald-400/10 border-emerald-400/35 text-white font-medium"
+                                : "inset-dark text-[#8b95ad]"
                             }`}
                           >
-                            {opt.letter}
-                          </span>
-                          <span>{opt.text}</span>
-                        </div>
-                        {isCorrect && (
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                            <div className="flex items-center gap-2.5">
+                              <span
+                                className={`w-6 h-6 rounded-lg flex items-center justify-center font-data font-bold text-xs ${
+                                  isCorrect
+                                    ? "bg-emerald-400 text-[#04070f]"
+                                    : "bg-white/6 text-[#8b95ad]"
+                                }`}
+                              >
+                                {opt.letter}
+                              </span>
+                              <span>{opt.text}</span>
+                            </div>
+                            {isCorrect && (
+                              <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
 
-                <div className="text-xs text-purple-200/85 bg-[#070B16]/70 rounded-xl p-3 border border-white/10">
-                  <strong className="text-[#FBBF24]">Explanation: </strong>
-                  {q.explanation}
-                </div>
-              </div>
+                    <div className="inset-dark rounded-xl p-3 text-sm text-[#8b95ad]">
+                      <strong className="text-white">Explanation: </strong>
+                      {q.explanation}
+                    </div>
+                  </div>
+                </LuxeCard>
+              </Reveal>
             ))}
           </div>
         </div>
       )}
 
-      {/* =====================================================================
-          TAB 3: CANDIDATE SCORES & DETAILED ATTEMPT ANALYTICS
-      ===================================================================== */}
+      {/* ===== TAB 3 ===== */}
       {activeTab === "scores" && (
-        <div className="space-y-6 animate-cross-morph">
-          <div className="mleaps-glass rounded-3xl p-6 sm:p-8 border border-white/15">
+        <div className="anim-pop">
+          <div className="glass rounded-[26px] p-6 sm:p-8">
             <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
               <div>
-                <span className="text-xs font-bold uppercase tracking-widest text-[#FBBF24]">
-                  Candidate Evaluation Ledger
-                </span>
-                <h2
-                  style={{ fontFamily: "var(--font-outfit)" }}
-                  className="text-xl font-bold text-white"
-                >
-                  Attempted Candidate Scores & Answer Sheet Verification
+                <span className="kicker text-[#d9b45b]">Evaluation ledger</span>
+                <h2 className="font-display text-xl font-bold text-white mt-1.5">
+                  Candidate scores
                 </h2>
               </div>
-
               <div className="relative min-w-[260px]">
-                <Search className="w-4 h-4 text-purple-300 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-[#5d6881] absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={scoreSearch}
                   onChange={(e) => setScoreSearch(e.target.value)}
-                  placeholder="Filter by candidate name or email..."
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#070B16]/90 border border-white/15 text-xs text-white focus:outline-none focus:border-[#F97316]"
+                  placeholder="Filter by name or email…"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-full inset-dark text-xs focus:outline-none focus:border-[#d9b45b]/45"
                 />
               </div>
             </div>
 
             {filteredAttempts.length === 0 ? (
-              <div className="text-center py-12 text-purple-300/70">
-                No candidate attempts match your search filter.
+              <div className="text-center py-14 text-[#5d6881]">
+                No candidate attempts match your filter.
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-white/10 text-[11px] uppercase tracking-wider text-purple-300/80">
+                    <tr className="border-b border-white/8 kicker text-[#5d6881]">
                       <th className="py-3.5 px-4">Candidate</th>
-                      <th className="py-3.5 px-4">Authorized Email</th>
-                      <th className="py-3.5 px-4">Raw Score</th>
-                      <th className="py-3.5 px-4">Percentage</th>
-                      <th className="py-3.5 px-4">Result (Pass ≥ 70%)</th>
+                      <th className="py-3.5 px-4">Email</th>
+                      <th className="py-3.5 px-4">Score</th>
+                      <th className="py-3.5 px-4">Result</th>
                       <th className="py-3.5 px-4">Duration</th>
                       <th className="py-3.5 px-4">Submitted</th>
                       <th className="py-3.5 px-4 text-right">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/10 text-sm">
+                  <tbody className="divide-y divide-white/6 text-sm">
                     {filteredAttempts.map((att) => (
                       <tr
                         key={att.id}
-                        className="hover:bg-white/[0.04] transition-colors"
+                        className="hover:bg-white/[0.03] transition-colors"
                       >
-                        <td className="py-4 px-4 font-bold text-white">
+                        <td className="py-4 px-4 font-semibold text-white">
                           {att.candidateName}
                         </td>
-                        <td
-                          style={{ fontFamily: "var(--font-mono)" }}
-                          className="py-4 px-4 text-xs text-[#FBBF24]"
-                        >
+                        <td className="py-4 px-4 text-xs text-[#8b95ad] font-data">
                           {att.candidateEmail}
-                        </td>
-                        <td
-                          style={{ fontFamily: "var(--font-mono)" }}
-                          className="py-4 px-4 font-extrabold text-white"
-                        >
-                          {att.score} / {att.totalQuestions}
                         </td>
                         <td className="py-4 px-4">
                           <div className="flex items-center gap-2">
-                            <span
-                              style={{ fontFamily: "var(--font-mono)" }}
-                              className="font-bold text-white"
-                            >
+                            <span className="font-data font-bold text-white">
                               {att.percentage}%
                             </span>
-                            <div className="w-16 h-2 bg-white/10 rounded-full overflow-hidden">
+                            <div className="w-16 h-1.5 bg-white/8 rounded-full overflow-hidden">
                               <div
                                 className={`h-full rounded-full ${
                                   att.passed
-                                    ? "bg-gradient-to-r from-emerald-400 to-teal-500"
-                                    : "bg-gradient-to-r from-rose-500 to-amber-500"
+                                    ? "bg-gradient-to-r from-emerald-400 to-emerald-500"
+                                    : "bg-gradient-to-r from-rose-400 to-amber-400"
                                 }`}
                                 style={{ width: `${att.percentage}%` }}
                               />
@@ -1197,34 +977,32 @@ export function AdminDashboard({
                         </td>
                         <td className="py-4 px-4">
                           {att.passed ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-400/40">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> CERTIFIED
-                              PASS
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-400/10 text-emerald-300 border border-emerald-400/30">
+                              <Check className="w-3.5 h-3.5" /> Pass
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-rose-500/20 text-rose-300 border border-rose-400/40">
-                              <AlertCircle className="w-3.5 h-3.5" /> BELOW 70%
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-400/10 text-rose-300 border border-rose-400/30">
+                              <AlertCircle className="w-3.5 h-3.5" /> Below 70%
                             </span>
                           )}
                         </td>
-                        <td
-                          style={{ fontFamily: "var(--font-mono)" }}
-                          className="py-4 px-4 text-xs text-purple-200"
-                        >
+                        <td className="py-4 px-4 text-xs text-[#8b95ad] font-data">
                           {Math.floor(att.timeSpentSeconds / 60)}m{" "}
                           {att.timeSpentSeconds % 60}s
                         </td>
-                        <td className="py-4 px-4 text-xs text-purple-200/80">
-                          {new Date(att.submittedAt).toLocaleString()}
+                        <td className="py-4 px-4 text-xs text-[#5d6881]">
+                          {new Date(att.submittedAt).toLocaleDateString(
+                            undefined,
+                            { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }
+                          )}
                         </td>
                         <td className="py-4 px-4 text-right">
                           <button
                             type="button"
                             onClick={() => setInspectingAttempt(att)}
-                            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#F97316] to-[#7C3AED] text-white font-bold text-xs inline-flex items-center gap-1.5 hover:brightness-110 transition-all cursor-pointer shadow-md"
+                            className="sheen px-3.5 py-2 rounded-full bg-gradient-to-r from-[#f3dca4] to-[#a8822f] text-[#0a0f1e] font-bold text-xs inline-flex items-center gap-1.5 transition-all cursor-pointer"
                           >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>Inspect Scorecard</span>
+                            <Eye className="w-3.5 h-3.5" /> Inspect
                           </button>
                         </td>
                       </tr>
@@ -1237,198 +1015,185 @@ export function AdminDashboard({
         </div>
       )}
 
-      {/* =====================================================================
-          MODAL: CREATE OR EDIT QUESTION & ANSWER KEY
-      ===================================================================== */}
+      {/* ===== MODAL ===== */}
       {editingQuestion && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fade-scale">
+        <div className="fixed inset-0 z-50 bg-[#04070f]/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto anim-pop">
           <form
             onSubmit={handleSaveQuestion}
-            className="mleaps-glass max-w-2xl w-full rounded-3xl p-6 sm:p-8 border border-[#F97316]/50 shadow-2xl space-y-4 my-8"
+            className="glass max-w-2xl w-full rounded-[26px] overflow-hidden my-8 edge-gold"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-widest text-[#FBBF24]">
-                  Six Sigma Question & Answer Editor
-                </span>
-                <h3
-                  style={{ fontFamily: "var(--font-outfit)" }}
-                  className="text-xl font-bold text-white"
+            <div className="p-7 sm:p-8 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-white/8">
+                <div>
+                  <span className="kicker text-[#d9b45b]">Question editor</span>
+                  <h3 className="font-display text-xl font-bold text-white mt-1">
+                    {editingQuestion.id
+                      ? `Edit question #${editingQuestion.questionNumber}`
+                      : "New question"}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingQuestion(null)}
+                  className="p-2 rounded-full bg-white/6 hover:bg-white/12 text-[#8b95ad] cursor-pointer"
                 >
-                  {editingQuestion.id
-                    ? `Edit Question #${editingQuestion.questionNumber}`
-                    : "Create New Assessment Question"}
-                </h3>
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setEditingQuestion(null)}
-                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-purple-200 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="kicker text-[#5d6881] block mb-1.5">No.</label>
+                  <input
+                    type="number"
+                    required
+                    value={editingQuestion.questionNumber ?? 1}
+                    onChange={(e) =>
+                      setEditingQuestion({
+                        ...editingQuestion,
+                        questionNumber: e.target.value
+                          ? Number(e.target.value)
+                          : undefined,
+                      })
+                    }
+                    className="w-full px-3.5 py-2.5 rounded-xl inset-dark text-sm focus:outline-none focus:border-[#d9b45b]/50"
+                  />
+                </div>
+                <div>
+                  <label className="kicker text-[#5d6881] block mb-1.5">
+                    Phase
+                  </label>
+                  <select
+                    value={editingQuestion.dmaicPhase || "Define"}
+                    onChange={(e) =>
+                      setEditingQuestion({
+                        ...editingQuestion,
+                        dmaicPhase: e.target.value,
+                      })
+                    }
+                    className="w-full px-3.5 py-2.5 rounded-xl inset-dark text-sm focus:outline-none focus:border-[#d9b45b]/50"
+                  >
+                    {["Define", "Measure", "Analyze", "Improve", "Control"].map(
+                      (p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label className="kicker text-emerald-400 block mb-1.5">
+                    Correct key
+                  </label>
+                  <select
+                    value={editingQuestion.correctOption || "A"}
+                    onChange={(e) =>
+                      setEditingQuestion({
+                        ...editingQuestion,
+                        correctOption: e.target.value,
+                      })
+                    }
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-emerald-400/10 border border-emerald-400/35 text-emerald-300 font-bold text-sm focus:outline-none"
+                  >
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                  </select>
+                </div>
+              </div>
+
               <div>
-                <label className="block text-xs font-bold uppercase text-purple-200 mb-1">
-                  Question #
+                <label className="kicker text-[#5d6881] block mb-1.5">
+                  Question stem
                 </label>
-                <input
-                  type="number"
+                <textarea
+                  rows={3}
                   required
-                  value={editingQuestion.questionNumber ?? 1}
+                  value={editingQuestion.questionText || ""}
                   onChange={(e) =>
                     setEditingQuestion({
                       ...editingQuestion,
-                      questionNumber: e.target.value
-                        ? Number(e.target.value)
-                        : undefined,
+                      questionText: e.target.value,
                     })
                   }
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#070B16] border border-white/15 text-white text-sm"
+                  className="w-full px-4 py-2.5 rounded-xl inset-dark text-sm focus:outline-none focus:border-[#d9b45b]/50"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold uppercase text-purple-200 mb-1">
-                  DMAIC Phase
-                </label>
-                <select
-                  value={editingQuestion.dmaicPhase || "Define"}
-                  onChange={(e) =>
-                    setEditingQuestion({
-                      ...editingQuestion,
-                      dmaicPhase: e.target.value,
-                    })
-                  }
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#070B16] border border-white/15 text-white text-sm"
-                >
-                  {["Define", "Measure", "Analyze", "Improve", "Control"].map(
-                    (p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    )
-                  )}
-                </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {(["A", "B", "C", "D"] as const).map((letter) => {
+                  const fieldKey = `option${letter}` as
+                    | "optionA"
+                    | "optionB"
+                    | "optionC"
+                    | "optionD";
+                  const isCorrect = editingQuestion.correctOption === letter;
+                  return (
+                    <div key={letter}>
+                      <label className="flex items-center justify-between kicker text-[#5d6881] mb-1.5">
+                        <span>Option {letter}</span>
+                        {isCorrect && (
+                          <span className="text-emerald-400">★ correct</span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={editingQuestion[fieldKey] || ""}
+                        onChange={(e) =>
+                          setEditingQuestion({
+                            ...editingQuestion,
+                            [fieldKey]: e.target.value,
+                          })
+                        }
+                        className={`w-full px-3.5 py-2.5 rounded-xl inset-dark text-sm focus:outline-none ${
+                          isCorrect
+                            ? "border-emerald-400/50"
+                            : "focus:border-[#d9b45b]/50"
+                        }`}
+                      />
+                    </div>
+                  );
+                })}
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase text-emerald-400 mb-1">
-                  Correct Answer Key
+                <label className="kicker text-[#5d6881] block mb-1.5">
+                  Explanation
                 </label>
-                <select
-                  value={editingQuestion.correctOption || "A"}
+                <textarea
+                  rows={2}
+                  value={editingQuestion.explanation || ""}
                   onChange={(e) =>
                     setEditingQuestion({
                       ...editingQuestion,
-                      correctOption: e.target.value,
+                      explanation: e.target.value,
                     })
                   }
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-emerald-950/60 border border-emerald-400/50 text-emerald-300 font-bold text-sm"
-                >
-                  <option value="A">Option A</option>
-                  <option value="B">Option B</option>
-                  <option value="C">Option C</option>
-                  <option value="D">Option D</option>
-                </select>
+                  placeholder="Why is the correct option right?"
+                  className="w-full px-4 py-2.5 rounded-xl inset-dark text-sm focus:outline-none focus:border-[#d9b45b]/50"
+                />
               </div>
-            </div>
 
-            <div>
-              <label className="block text-xs font-bold uppercase text-purple-200 mb-1">
-                Question Stem *
-              </label>
-              <textarea
-                rows={3}
-                required
-                value={editingQuestion.questionText || ""}
-                onChange={(e) =>
-                  setEditingQuestion({
-                    ...editingQuestion,
-                    questionText: e.target.value,
-                  })
-                }
-                className="w-full px-4 py-2.5 rounded-xl bg-[#070B16] border border-white/15 text-white text-sm"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {(["A", "B", "C", "D"] as const).map((letter) => {
-                const fieldKey = `option${letter}` as
-                  | "optionA"
-                  | "optionB"
-                  | "optionC"
-                  | "optionD";
-                const isCorrect = editingQuestion.correctOption === letter;
-                return (
-                  <div key={letter}>
-                    <label className="flex items-center justify-between text-xs font-bold uppercase text-purple-200 mb-1">
-                      <span>Option {letter} *</span>
-                      {isCorrect && (
-                        <span className="text-[10px] text-emerald-400">
-                          ★ Correct Answer
-                        </span>
-                      )}
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={editingQuestion[fieldKey] || ""}
-                      onChange={(e) =>
-                        setEditingQuestion({
-                          ...editingQuestion,
-                          [fieldKey]: e.target.value,
-                        })
-                      }
-                      className={`w-full px-3.5 py-2.5 rounded-xl bg-[#070B16] border text-sm text-white ${
-                        isCorrect ? "border-emerald-400" : "border-white/15"
-                      }`}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase text-purple-200 mb-1">
-                Detailed Examiner Explanation
-              </label>
-              <textarea
-                rows={2}
-                value={editingQuestion.explanation || ""}
-                onChange={(e) =>
-                  setEditingQuestion({
-                    ...editingQuestion,
-                    explanation: e.target.value,
-                  })
-                }
-                placeholder="Explain why the selected option is correct..."
-                className="w-full px-4 py-2.5 rounded-xl bg-[#070B16] border border-white/15 text-white text-sm"
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
-              <button
-                type="button"
-                onClick={() => setEditingQuestion(null)}
-                className="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-purple-200 text-xs font-bold cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSavingQuestion}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#F97316] to-[#FBBF24] text-slate-950 font-extrabold text-xs flex items-center gap-2 shadow-lg cursor-pointer"
-              >
-                <Save className="w-4 h-4" />
-                <span>
-                  {isSavingQuestion
-                    ? "Saving Changes..."
-                    : "Save Question & Answer Key"}
-                </span>
-              </button>
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/8">
+                <button
+                  type="button"
+                  onClick={() => setEditingQuestion(null)}
+                  className="px-5 py-2.5 rounded-full bg-white/6 hover:bg-white/12 text-[#8b95ad] text-sm font-medium cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingQuestion}
+                  className="sheen px-6 py-2.5 rounded-full bg-gradient-to-r from-[#f3dca4] to-[#a8822f] text-[#0a0f1e] font-bold text-sm flex items-center gap-2 cursor-pointer disabled:opacity-60"
+                >
+                  <Save className="w-4 h-4" />
+                  {isSavingQuestion ? "Saving…" : "Save question"}
+                </button>
+              </div>
             </div>
           </form>
         </div>
