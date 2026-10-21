@@ -354,10 +354,10 @@
   "assignments": [
     {
       "id": 1,
-      "candidateName": "Demo Candidate (Fake Profile)",
+      "candidateName": "Demo Candidate",
       "candidateEmail": "fake.candidate@mleaps.com",
-      "validFrom": "2026-10-21T08:49:09.149Z",
-      "validUntil": "2026-10-23T08:54:09.149Z",
+      "validFrom": "2026-10-21T08:53:23.245Z",
+      "validUntil": "2026-10-23T08:58:23.245Z",
       "durationMinutes": 40,
       "status": "assigned",
       "notes": "Fake candidate profile active for 48 hours to take the Six Sigma Green Belt mock test.",
@@ -442,6 +442,26 @@
     }
   ],
   "attempts": [
+    {
+      "id": 6,
+      "assignmentId": 1,
+      "candidateName": "Demo Candidate (Fake Profile)",
+      "candidateEmail": "fake.candidate@mleaps.com",
+      "score": 5,
+      "totalQuestions": 25,
+      "percentage": 20,
+      "passed": false,
+      "answers": {
+        "1": "A",
+        "2": "A",
+        "3": "C",
+        "4": "A",
+        "5": "A"
+      },
+      "timeSpentSeconds": 120,
+      "startedAt": "2026-10-21T08:57:25.950Z",
+      "submittedAt": "2026-10-21T08:57:31.265Z"
+    },
     {
       "id": 5,
       "assignmentId": 1,
