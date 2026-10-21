@@ -1,17 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import {
-  Question,
-  CandidateAssignment,
-  ExamAttempt,
-} from "@/db/schema";
+import { Question, CandidateAssignment, ExamAttempt } from "@/db/schema";
 import { MleapsLogo } from "@/components/MleapsLogo";
-import {
-  SixSigmaBellCurveCard,
-  AnimatedCheckIcon,
-  AnimatedCrossIcon,
-} from "@/components/SixSigmaVisuals";
+import { BellCurvePanel, CheckMark, CrossMark } from "@/components/SixSigmaVisuals";
 import { LiveExamArena } from "@/components/LiveExamArena";
 import { ScorecardView } from "@/components/ScorecardView";
 import { AdminDashboard } from "@/components/AdminDashboard";
@@ -20,18 +12,16 @@ import {
   Lock,
   Mail,
   User,
-  Clock,
-  Calendar,
   ArrowRight,
-  Sparkles,
-  CheckCircle2,
   FileText,
-  Award,
-  Settings,
   GraduationCap,
+  Settings,
   Play,
-  AlertTriangle,
   Eye,
+  Award,
+  Clock,
+  CircleCheck,
+  Hourglass,
 } from "lucide-react";
 
 type WorkspaceMode = "candidate" | "admin";
@@ -52,31 +42,26 @@ interface VerificationResult {
   latestAttempt?: ExamAttempt | null;
 }
 
-export default function SixSigmaAssessmentPlatform() {
-  const [workspaceMode, setWorkspaceMode] =
-    useState<WorkspaceMode>("candidate");
-  const [candidateStage, setCandidateStage] =
-    useState<CandidateStage>("verify");
+export default function AssessmentPlatform() {
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("candidate");
+  const [candidateStage, setCandidateStage] = useState<CandidateStage>("verify");
 
-  // Database state
   const [questions, setQuestions] = useState<Question[]>([]);
   const [assignments, setAssignments] = useState<CandidateAssignment[]>([]);
   const [attempts, setAttempts] = useState<ExamAttempt[]>([]);
-  const [isLoadingData, setIsLoadingData] = useState<boolean>(true);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
-  // Candidate verification inputs
-  const [emailInput, setEmailInput] = useState<string>(
-    "alex.rivera@mleaps.com"
-  );
-  const [nameInput, setNameInput] = useState<string>("Alex Rivera");
-  const [isVerifying, setIsVerifying] = useState<boolean>(false);
+  const [emailInput, setEmailInput] = useState("fake.candidate@mleaps.com");
+  const [nameInput, setNameInput] = useState("Demo Candidate (Fake Profile)");
+  const [isVerifying, setIsVerifying] = useState(false);
   const [verificationResult, setVerificationResult] =
     useState<VerificationResult | null>(null);
   const [activeAssignment, setActiveAssignment] =
     useState<CandidateAssignment | null>(null);
-  const [completedAttempt, setCompletedAttempt] =
-    useState<ExamAttempt | null>(null);
-  const [shakeError, setShakeError] = useState<boolean>(false);
+  const [completedAttempt, setCompletedAttempt] = useState<ExamAttempt | null>(
+    null
+  );
+  const [shakeError, setShakeError] = useState(false);
 
   const fetchAllPlatformData = useCallback(async () => {
     try {
@@ -84,10 +69,7 @@ export default function SixSigmaAssessmentPlatform() {
         fetch("/api/questions"),
         fetch("/api/assignments"),
       ]);
-      if (qRes.ok) {
-        const qData = await qRes.json();
-        setQuestions(qData.questions || []);
-      }
+      if (qRes.ok) setQuestions((await qRes.json()).questions || []);
       if (aRes.ok) {
         const aData = await aRes.json();
         setAssignments(aData.assignments || []);
@@ -112,37 +94,31 @@ export default function SixSigmaAssessmentPlatform() {
     if (e) e.preventDefault();
     const targetEmail = (overrideEmail ?? emailInput).trim().toLowerCase();
     const targetName = (overrideName ?? nameInput).trim();
-
     if (!targetEmail) return;
+
     setIsVerifying(true);
     setVerificationResult(null);
-
     try {
       const res = await fetch("/api/assignments/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: targetEmail,
-          candidateName: targetName,
-        }),
+        body: JSON.stringify({ email: targetEmail, candidateName: targetName }),
       });
       const data: VerificationResult = await res.json();
       setVerificationResult(data);
-
       if (data.allowed && data.assignment) {
         setActiveAssignment(data.assignment);
-        if (!targetName && data.assignment.candidateName) {
+        if (!targetName && data.assignment.candidateName)
           setNameInput(data.assignment.candidateName);
-        }
       } else {
         setShakeError(true);
-        setTimeout(() => setShakeError(false), 650);
+        setTimeout(() => setShakeError(false), 550);
       }
     } catch {
       setVerificationResult({
         allowed: false,
         code: "SERVER_ERROR",
-        message: "Unable to verify email authorization. Please try again.",
+        message: "Unable to verify eligibility. Please try again.",
       });
     } finally {
       setIsVerifying(false);
@@ -172,13 +148,10 @@ export default function SixSigmaAssessmentPlatform() {
         startedAt: payload.startedAt,
       }),
     });
-
     if (res.ok) {
       const data = await res.json();
       setCompletedAttempt(data.attempt);
-      if (data.questions) {
-        setQuestions(data.questions);
-      }
+      if (data.questions) setQuestions(data.questions);
       setCandidateStage("scorecard");
       await fetchAllPlatformData();
     }
@@ -192,98 +165,119 @@ export default function SixSigmaAssessmentPlatform() {
     handleVerifyCandidate(undefined, email, name);
   };
 
-  // If the candidate is currently inside the proctored Live Exam Arena, show full-screen Arena
+  // ============ FULL-SCREEN EXAM ARENA ============
   if (
     workspaceMode === "candidate" &&
     candidateStage === "exam" &&
     activeAssignment
   ) {
     return (
-      <div className="min-h-screen bg-[#0B1020] text-white relative overflow-hidden">
-        <div className="fixed -top-40 -left-40 w-96 h-96 rounded-full bg-[#F97316]/8 blur-[150px] pointer-events-none animate-aurora" />
-        <div className="fixed -bottom-40 -right-40 w-96 h-96 rounded-full bg-[#7C3AED]/12 blur-[150px] pointer-events-none animate-aurora-delayed" />
-
-        <LiveExamArena
-          questions={questions}
-          assignment={activeAssignment}
-          candidateName={nameInput || activeAssignment.candidateName}
-          candidateEmail={emailInput || activeAssignment.candidateEmail}
-          onSubmitExam={handleSubmitExamAttempt}
-          onCancelExam={() => setCandidateStage("briefing")}
-        />
-      </div>
+      <LiveExamArena
+        questions={questions}
+        assignment={activeAssignment}
+        candidateName={nameInput || activeAssignment.candidateName}
+        candidateEmail={emailInput || activeAssignment.candidateEmail}
+        onSubmitExam={handleSubmitExamAttempt}
+        onCancelExam={() => setCandidateStage("briefing")}
+      />
     );
   }
 
-  return (
-    <div className="min-h-screen bg-[#0B1020] text-white relative overflow-hidden flex flex-col">
-      {/* Ambient Floating Mleaps Orange & Royal Purple Aurora Orbs */}
-      <div className="fixed -top-36 -left-36 w-[460px] h-[460px] rounded-full bg-[#F97316]/8 blur-[150px] pointer-events-none animate-aurora" />
-      <div className="fixed top-1/3 -right-40 w-[520px] h-[520px] rounded-full bg-[#7C3AED]/12 blur-[160px] pointer-events-none animate-aurora-delayed" />
-      <div className="fixed -bottom-40 left-1/4 w-[420px] h-[420px] rounded-full bg-[#FBBF24]/6 blur-[150px] pointer-events-none animate-aurora" />
+  const presets = [
+    {
+      email: "fake.candidate@mleaps.com",
+      name: "Demo Candidate (Fake Profile)",
+      label: "Fake Profile · Active 48h",
+      Icon: CircleCheck,
+      tone: "text-amber-800 border-amber-300 bg-amber-50/90 font-bold",
+    },
+    {
+      email: "alex.rivera@mleaps.com",
+      name: "Alex Rivera",
+      label: "Active 48h window",
+      Icon: CircleCheck,
+      tone: "text-emerald-700 border-emerald-200 bg-emerald-50/60",
+    },
+    {
+      email: "marcus.vance@mleaps.com",
+      name: "Marcus Vance",
+      label: "Scheduled",
+      Icon: Hourglass,
+      tone: "text-amber-700 border-amber-200 bg-amber-50/60",
+    },
+    {
+      email: "elena.rostova@mleaps.com",
+      name: "Elena Rostova",
+      label: "Expired",
+      Icon: Clock,
+      tone: "text-rose-700 border-rose-200 bg-rose-50/60",
+    },
+    {
+      email: "siddharth.mehta@mleaps.com",
+      name: "Dr. Siddharth Mehta",
+      label: "Completed · 92%",
+      Icon: Award,
+      tone: "text-violet-700 border-violet-200 bg-violet-50/60",
+    },
+  ];
 
-      {/* Top Glassmorphic Brand Navigation Bar */}
-      <header className="sticky top-0 z-40 mleaps-glass border-b border-white/10 px-4 sm:px-8 py-3.5">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-          {/* Mleaps Consulting Logo & Assessment Title */}
+  return (
+    <div className="min-h-screen flex flex-col relative overflow-hidden">
+      {/* Ambient soft wash */}
+      <div className="pointer-events-none fixed -top-40 -left-32 w-[520px] h-[520px] rounded-full bg-[#f97316]/8 blur-[150px] drift-slow" />
+      <div className="pointer-events-none fixed top-1/4 -right-40 w-[560px] h-[560px] rounded-full bg-[#7c3aed]/8 blur-[160px] drift-slow-2" />
+
+      {/* ============ TOP NAV ============ */}
+      <header className="sticky top-0 z-40 bg-[#faf9f6]/85 backdrop-blur-xl border-b border-[#e8e4db]">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 h-20 flex items-center justify-between gap-4">
           <div
             onClick={() => {
               setWorkspaceMode("candidate");
               setCandidateStage("verify");
             }}
-            className="flex items-center gap-4 cursor-pointer group"
+            className="flex items-center gap-4 cursor-pointer"
           >
-            <MleapsLogo size="sm" variant="badge" />
-            <div className="hidden md:block">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#FBBF24]">
-                  Mleaps Consulting Certification Portal
-                </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#7C3AED]/40 border border-purple-400/40 text-purple-200">
-                  6σ Green Belt
-                </span>
+            <MleapsLogo size="sm" />
+            <div className="hidden lg:block pl-4 border-l border-[#e8e4db]">
+              <div className="eyebrow text-[#c4530a]">
+                Certification Authority
               </div>
-              <h1
-                style={{ fontFamily: "var(--font-outfit)" }}
-                className="text-lg font-extrabold text-white group-hover:text-[#FBBF24] transition-colors"
-              >
-                Six Sigma Green Belt Certification Assessment
-              </h1>
+              <div className="font-display text-[15px] font-semibold text-[#15172a] leading-tight">
+                Six Sigma Green Belt Assessment
+              </div>
             </div>
           </div>
 
-          {/* Mode Switcher: Candidate Portal vs. Admin Command Center */}
-          <div className="flex items-center gap-2 bg-[#070B16]/90 p-1.5 rounded-2xl border border-white/15">
+          <div className="flex items-center gap-1 p-1 rounded-full border border-[#e8e4db] bg-white">
             <button
               type="button"
               onClick={() => setWorkspaceMode("candidate")}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all duration-300 cursor-pointer ${
+              className={`px-4 sm:px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 transition-all cursor-pointer ${
                 workspaceMode === "candidate"
-                  ? "bg-gradient-to-r from-[#F97316] to-[#FBBF24] text-slate-950 shadow-[0_4px_20px_rgba(249,115,22,0.4)]"
-                  : "text-purple-200 hover:text-white"
+                  ? "bg-[#15172a] text-white shadow-sm"
+                  : "text-[#6b6e80] hover:text-[#15172a]"
               }`}
             >
               <GraduationCap className="w-4 h-4" />
-              <span>Candidate Exam Portal</span>
+              <span className="hidden sm:inline">Candidate</span>
             </button>
-
             <button
               type="button"
               onClick={() => setWorkspaceMode("admin")}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all duration-300 cursor-pointer ${
+              className={`px-4 sm:px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 transition-all cursor-pointer ${
                 workspaceMode === "admin"
-                  ? "bg-gradient-to-r from-[#8B5CF6] to-[#7C3AED] text-white shadow-[0_4px_20px_rgba(124,58,237,0.5)]"
-                  : "text-purple-200 hover:text-white"
+                  ? "bg-[#15172a] text-white shadow-sm"
+                  : "text-[#6b6e80] hover:text-[#15172a]"
               }`}
             >
               <Settings className="w-4 h-4" />
-              <span>Admin Command Center</span>
+              <span className="hidden sm:inline">Administration</span>
             </button>
           </div>
         </div>
       </header>
 
-      {/* Main Content Area */}
+      {/* ============ MAIN ============ */}
       <main className="flex-1 relative z-10">
         {workspaceMode === "admin" ? (
           <AdminDashboard
@@ -301,403 +295,307 @@ export default function SixSigmaAssessmentPlatform() {
               setCandidateStage("verify");
               setVerificationResult(null);
             }}
-            backLabel="Return to Candidate Verification Portal"
+            backLabel="Return to verification"
           />
         ) : candidateStage === "briefing" && activeAssignment ? (
-          /* =================================================================
-             STAGE 2: OFFICIAL PRE-EXAM BRIEFING & COVER SHEET
-             Matches the exact header & instructions from the user's prompt!
-          ================================================================= */
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 animate-cross-morph">
-            <div className="mleaps-glass rounded-3xl p-6 sm:p-10 border border-[#F97316]/50 shadow-[0_20px_60px_rgba(0,0,0,0.75)] relative overflow-hidden">
-              {/* Top Gradient Ribbon */}
-              <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#F97316] via-[#FBBF24] to-[#7C3AED]" />
-
-              <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-white/15">
-                <MleapsLogo size="md" variant="badge" />
-                <div className="text-right">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-400/40">
-                    <ShieldCheck className="w-4 h-4" /> Identity & Time Window
-                    Verified
-                  </span>
-                  <div className="text-xs text-purple-200/80 mt-1 font-mono">
-                    Authorized Window Ends:{" "}
-                    {new Date(activeAssignment.validUntil).toLocaleString()}
-                  </div>
-                </div>
-              </div>
-
-              {/* Official Cover Sheet Title */}
-              <div className="my-6 text-center sm:text-left">
-                <div className="text-xs font-extrabold uppercase tracking-widest text-[#FBBF24]">
-                  Mock Examination — Practice & Certification Assessment
-                </div>
-                <h2
-                  style={{ fontFamily: "var(--font-outfit)" }}
-                  className="text-2xl sm:text-4xl font-extrabold text-white mt-1"
-                >
-                  Six Sigma Green Belt Certification Assessment
-                </h2>
-                <p className="text-sm text-purple-200/85 mt-1">
-                  {questions.length} Multiple Choice Questions — Practice
-                  Assessment
-                </p>
-              </div>
-
-              {/* Official Exam Parameters Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 my-6">
-                <div className="bg-[#070B16]/80 rounded-2xl p-4 border border-white/10">
-                  <div className="text-[11px] uppercase tracking-wider text-purple-300/75">
-                    Total Questions
-                  </div>
-                  <div
-                    style={{ fontFamily: "var(--font-mono)" }}
-                    className="text-2xl font-extrabold text-white mt-1"
-                  >
-                    {questions.length} MCQs
-                  </div>
-                </div>
-
-                <div className="bg-[#070B16]/80 rounded-2xl p-4 border border-white/10">
-                  <div className="text-[11px] uppercase tracking-wider text-purple-300/75">
-                    Duration
-                  </div>
-                  <div
-                    style={{ fontFamily: "var(--font-mono)" }}
-                    className="text-2xl font-extrabold text-[#FBBF24] mt-1"
-                  >
-                    {activeAssignment.durationMinutes} mins
-                  </div>
-                </div>
-
-                <div className="bg-[#070B16]/80 rounded-2xl p-4 border border-white/10">
-                  <div className="text-[11px] uppercase tracking-wider text-purple-300/75">
-                    Question Type
-                  </div>
-                  <div className="text-sm font-extrabold text-white mt-1.5">
-                    Single Best (A/B/C/D)
-                  </div>
-                </div>
-
-                <div className="bg-[#070B16]/80 rounded-2xl p-4 border border-white/10">
-                  <div className="text-[11px] uppercase tracking-wider text-purple-300/75">
-                    Passing Score
-                  </div>
-                  <div
-                    style={{ fontFamily: "var(--font-mono)" }}
-                    className="text-2xl font-extrabold text-emerald-400 mt-1"
-                  >
-                    70% (18/25)
-                  </div>
-                </div>
-              </div>
-
-              {/* Candidate Name & Date Fields (Matching Document Header) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white/[0.03] rounded-2xl p-5 border border-white/10 my-6">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#FBBF24] mb-1">
-                    Candidate Name:
-                  </label>
-                  <input
-                    type="text"
-                    value={nameInput}
-                    onChange={(e) => setNameInput(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl bg-[#070B16] border border-white/20 text-white font-bold text-sm focus:outline-none focus:border-[#F97316]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#FBBF24] mb-1">
-                    Assigned Email & Date:
-                  </label>
-                  <div className="px-3.5 py-2 rounded-xl bg-[#070B16]/60 border border-white/10 text-purple-100 text-sm font-mono flex items-center justify-between">
-                    <span className="truncate">{emailInput}</span>
-                    <span className="text-xs text-purple-300 shrink-0 ml-2">
-                      {new Date().toLocaleDateString()}
+          /* ============ BRIEFING / COVER SHEET ============ */
+          <div className="max-w-3xl mx-auto px-5 sm:px-6 py-12 fade-soft">
+            <div className="card-premium rounded-3xl overflow-hidden">
+              <div className="h-1 rule-accent line-grow" />
+              <div className="p-7 sm:p-11">
+                <div className="flex items-start justify-between gap-6 pb-7 border-b border-[#eceae4]">
+                  <MleapsLogo size="md" />
+                  <div className="text-right">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <ShieldCheck className="w-3.5 h-3.5" /> Verified
                     </span>
+                    <div className="text-xs text-[#9a9a90] mt-1.5 font-data">
+                      Closes{" "}
+                      {new Date(activeAssignment.validUntil).toLocaleDateString(
+                        undefined,
+                        { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Official Instructions Box */}
-              <div className="bg-[#070B16]/90 rounded-2xl p-5 border border-[#7C3AED]/60 space-y-2.5 mb-8">
-                <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#F97316]">
-                  <FileText className="w-4 h-4" /> Official Examination
-                  Instructions
+                <div className="mt-8">
+                  <span className="eyebrow text-[#c4530a]">
+                    Certification Examination
+                  </span>
+                  <h1 className="font-display text-4xl sm:text-5xl font-semibold text-[#15172a] mt-2 leading-[1.05]">
+                    Six Sigma
+                    <br />
+                    <span className="italic text-accent-gradient">
+                      Green Belt
+                    </span>{" "}
+                    Assessment
+                  </h1>
+                  <p className="text-[#747789] mt-4 leading-relaxed max-w-xl">
+                    You are about to begin a proctored evaluation of{" "}
+                    {questions.length} questions spanning the full DMAIC body of
+                    knowledge. Please read the protocol below before you begin.
+                  </p>
                 </div>
-                <p className="text-sm text-purple-100/90 leading-relaxed">
-                  Read each question carefully and select the single best answer{" "}
-                  <strong className="text-white">(A, B, C, or D)</strong>. Mark
-                  your chosen option clearly. There is only one correct answer
-                  per question. Do not refer to notes or external material
-                  unless the assessment is explicitly open-book. Detailed
-                  answers and explanations are provided on your official
-                  scorecard immediately upon submission.
-                </p>
-              </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <button
-                  type="button"
-                  onClick={() => setCandidateStage("verify")}
-                  className="px-5 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/15 text-sm font-semibold text-purple-200 cursor-pointer"
-                >
-                  ← Change Candidate Email
-                </button>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-px mt-8 rounded-2xl overflow-hidden border border-[#eceae4] bg-[#eceae4]">
+                  {[
+                    { k: "Questions", v: `${questions.length}` },
+                    { k: "Duration", v: `${activeAssignment.durationMinutes}m` },
+                    { k: "Format", v: "MCQ · A–D" },
+                    { k: "Pass mark", v: "70%" },
+                  ].map((s) => (
+                    <div key={s.k} className="bg-white p-4 text-center">
+                      <div className="font-display text-2xl font-semibold text-[#15172a]">
+                        {s.v}
+                      </div>
+                      <div className="eyebrow text-[#9a9a90] mt-1">{s.k}</div>
+                    </div>
+                  ))}
+                </div>
 
-                <button
-                  type="button"
-                  onClick={() => setCandidateStage("exam")}
-                  className="px-8 py-4 rounded-2xl font-extrabold text-base text-slate-950 bg-gradient-to-r from-[#F97316] to-[#FBBF24] hover:brightness-110 shadow-[0_10px_35px_rgba(249,115,22,0.45)] flex items-center gap-3 transition-all hover:scale-[1.02] cursor-pointer animate-pulse-orange"
-                >
-                  <Play className="w-5 h-5 fill-slate-950" />
-                  <span>Begin 40-Minute Assessment Now</span>
-                </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-8">
+                  <div>
+                    <label className="eyebrow text-[#9a9a90] block mb-2">
+                      Candidate name
+                    </label>
+                    <input
+                      type="text"
+                      value={nameInput}
+                      onChange={(e) => setNameInput(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl bg-[#faf9f6] border border-[#e0dccf] text-[#15172a] font-medium focus:outline-none focus:border-[#e2630f] focus:bg-white transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="eyebrow text-[#9a9a90] block mb-2">
+                      Authorized email
+                    </label>
+                    <div className="px-4 py-3 rounded-xl bg-[#f4f2ec] border border-[#e8e4db] text-[#6b6e80] font-data text-sm truncate">
+                      {emailInput}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="inset-panel rounded-2xl p-5 mt-7">
+                  <div className="flex items-center gap-2 eyebrow text-[#c4530a] mb-2">
+                    <FileText className="w-3.5 h-3.5" /> Examination protocol
+                  </div>
+                  <p className="text-sm text-[#5b5e70] leading-relaxed">
+                    Read each question carefully and select the single best
+                    answer (A, B, C, or D). There is exactly one correct answer
+                    per question, and no penalty for incorrect responses. The
+                    timer begins the moment you enter the examination room and
+                    submits automatically when it expires. A detailed scorecard
+                    with explanations is issued immediately upon submission.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-4 mt-9">
+                  <button
+                    type="button"
+                    onClick={() => setCandidateStage("verify")}
+                    className="text-sm font-medium text-[#6b6e80] hover:text-[#15172a] transition-colors cursor-pointer"
+                  >
+                    ← Use a different email
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCandidateStage("exam")}
+                    className="group inline-flex items-center gap-3 pl-7 pr-6 py-4 rounded-full bg-[#15172a] text-white font-medium shadow-lg hover:bg-[#242740] transition-all cursor-pointer halo-pulse"
+                  >
+                    <span>Enter examination room</span>
+                    <span className="w-8 h-8 rounded-full bg-[#e2630f] flex items-center justify-center group-hover:translate-x-0.5 transition-transform">
+                      <Play className="w-4 h-4 fill-white text-white" />
+                    </span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         ) : (
-          /* =================================================================
-             STAGE 1: CANDIDATE EMAIL & TIME-WINDOW VERIFICATION LANDING
-          ================================================================= */
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
-              {/* Left 7 Columns: Brand Showcase, Exam Specs & 6σ Bell Curve */}
-              <div className="lg:col-span-7 space-y-6 animate-slide-left">
-                <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#F97316]/20 to-[#7C3AED]/30 border border-[#F97316]/40 text-xs font-bold text-[#FBBF24]">
-                  <Sparkles className="w-3.5 h-3.5 text-[#F97316]" />
-                  <span>
-                    Mleaps Consulting • Accredited Six Sigma Evaluation
+          /* ============ LANDING / VERIFICATION ============ */
+          <div className="max-w-7xl mx-auto px-5 sm:px-8 py-12 lg:py-20">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
+              {/* LEFT — editorial */}
+              <div className="lg:col-span-7 reveal-left">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-[#e2630f]/25 bg-[#fff6ec]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#e2630f] animate-pulse" />
+                  <span className="eyebrow text-[#c4530a]">
+                    Mleaps Consulting · Accredited Program
                   </span>
                 </div>
 
-                <h1
-                  style={{ fontFamily: "var(--font-outfit)" }}
-                  className="text-3xl sm:text-5xl font-extrabold tracking-tight leading-[1.12] text-white"
-                >
-                  Six Sigma{" "}
-                  <span className="text-mleaps-gradient">
-                    Green Belt Certification
-                  </span>{" "}
-                  Assessment
+                <h1 className="font-display text-5xl sm:text-6xl lg:text-[4.6rem] font-semibold text-[#15172a] mt-6 leading-[1.02] tracking-tight">
+                  The standard for
+                  <br />
+                  <span className="italic shimmer-accent">operational</span>{" "}
+                  excellence.
                 </h1>
 
-                <p className="text-base sm:text-lg text-purple-200/85 leading-relaxed max-w-2xl">
-                  Welcome to the official{" "}
-                  <strong className="text-white">Mleaps Consulting</strong>{" "}
-                  Mock Examination & Certification Platform. Validate your
-                  mastery across the{" "}
-                  <strong className="text-[#FBBF24]">
-                    Define, Measure, Analyze, Improve, and Control (DMAIC)
-                  </strong>{" "}
-                  methodology through {questions.length || 25} rigorous multiple
-                  choice questions.
+                <p className="text-lg text-[#5b5e70] mt-6 leading-relaxed max-w-xl">
+                  A rigorous, proctored{" "}
+                  <span className="text-[#15172a] font-medium">
+                    Six Sigma Green Belt
+                  </span>{" "}
+                  certification assessment — measuring true mastery across
+                  Define, Measure, Analyze, Improve, and Control.
                 </p>
 
-                {/* 4 Spec Highlights */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="mleaps-glass mleaps-glass-hover rounded-2xl p-4">
+                {/* stat row */}
+                <div className="flex flex-wrap items-stretch gap-px mt-10 rounded-2xl overflow-hidden border border-[#e8e4db] bg-[#e8e4db] max-w-xl">
+                  {[
+                    { v: `${questions.length || 25}`, k: "Questions" },
+                    { v: "40", k: "Minutes" },
+                    { v: "70%", k: "To pass" },
+                    { v: "3.4", k: "Target DPMO" },
+                  ].map((s, i) => (
                     <div
-                      style={{ fontFamily: "var(--font-mono)" }}
-                      className="text-2xl font-extrabold text-[#F97316]"
+                      key={s.k}
+                      style={{ animationDelay: `${i * 90}ms` }}
+                      className="count-up bg-[#faf9f6] px-5 py-4 flex-1 min-w-[90px]"
                     >
-                      {questions.length || 25}
+                      <div className="font-display text-3xl font-semibold text-[#15172a]">
+                        {s.v}
+                      </div>
+                      <div className="eyebrow text-[#9a9a90] mt-1">{s.k}</div>
                     </div>
-                    <div className="text-xs font-semibold text-white mt-0.5">
-                      Multiple Choice
-                    </div>
-                    <div className="text-[11px] text-purple-300/70">
-                      Single Best Option
-                    </div>
-                  </div>
-
-                  <div className="mleaps-glass mleaps-glass-hover rounded-2xl p-4">
-                    <div
-                      style={{ fontFamily: "var(--font-mono)" }}
-                      className="text-2xl font-extrabold text-[#FBBF24]"
-                    >
-                      40 Min
-                    </div>
-                    <div className="text-xs font-semibold text-white mt-0.5">
-                      Timed Session
-                    </div>
-                    <div className="text-[11px] text-purple-300/70">
-                      Live Auto-Timer
-                    </div>
-                  </div>
-
-                  <div className="mleaps-glass mleaps-glass-hover rounded-2xl p-4">
-                    <div
-                      style={{ fontFamily: "var(--font-mono)" }}
-                      className="text-2xl font-extrabold text-emerald-400"
-                    >
-                      70%
-                    </div>
-                    <div className="text-xs font-semibold text-white mt-0.5">
-                      Passing Score
-                    </div>
-                    <div className="text-[11px] text-purple-300/70">
-                      18 / 25 Correct
-                    </div>
-                  </div>
-
-                  <div className="mleaps-glass mleaps-glass-hover rounded-2xl p-4">
-                    <div
-                      style={{ fontFamily: "var(--font-mono)" }}
-                      className="text-2xl font-extrabold text-purple-400"
-                    >
-                      3.4
-                    </div>
-                    <div className="text-xs font-semibold text-white mt-0.5">
-                      Target DPMO
-                    </div>
-                    <div className="text-[11px] text-purple-300/70">
-                      6σ Benchmark
-                    </div>
-                  </div>
+                  ))}
                 </div>
 
-                {/* Animated 6-Sigma Bell Curve & DMAIC Card */}
-                <SixSigmaBellCurveCard />
+                <div className="mt-10">
+                  <BellCurvePanel />
+                </div>
               </div>
 
-              {/* Right 5 Columns: Strict Email & Time-Window Verification Gate */}
-              <div className="lg:col-span-5 animate-slide-right">
+              {/* RIGHT — verification gate */}
+              <div className="lg:col-span-5 reveal-right lg:sticky lg:top-28">
                 <div
-                  className={`mleaps-glass rounded-3xl p-6 sm:p-8 border border-white/15 shadow-[0_25px_70px_rgba(0,0,0,0.75)] relative overflow-hidden ${
+                  className={`card-premium rounded-3xl overflow-hidden ${
                     shakeError ? "animate-shake" : ""
                   }`}
                 >
-                  {/* Top Gradient Highlight */}
-                  <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#F97316] via-[#FBBF24] to-[#7C3AED]" />
-
-                  <div className="flex items-center justify-between mb-5">
-                    <MleapsLogo size="sm" variant="badge" />
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#7C3AED]/30 border border-purple-400/40 text-purple-200">
-                      <Lock className="w-3 h-3 text-[#FBBF24]" /> Time-Window
-                      Gated
-                    </span>
-                  </div>
-
-                  <h2
-                    style={{ fontFamily: "var(--font-outfit)" }}
-                    className="text-2xl font-extrabold text-white"
-                  >
-                    Candidate Access Verification
-                  </h2>
-                  <p className="text-xs sm:text-sm text-purple-200/80 mt-1 mb-6">
-                    Only candidates explicitly assigned by the Mleaps Consulting
-                    Administrator may attempt this assessment from their
-                    registered email within their scheduled time period.
-                  </p>
-
-                  <form onSubmit={handleVerifyCandidate} className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-purple-200 mb-1.5">
-                        Candidate Full Name
-                      </label>
-                      <div className="relative">
-                        <User className="w-4 h-4 text-[#F97316] absolute left-4 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="text"
-                          required
-                          value={nameInput}
-                          onChange={(e) => setNameInput(e.target.value)}
-                          placeholder="Enter your full name"
-                          className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-[#070B16]/90 border border-white/15 text-white text-sm focus:outline-none focus:border-[#F97316] transition-colors"
-                        />
+                  <div className="h-1 rule-accent" />
+                  <div className="p-7 sm:p-9">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="w-11 h-11 rounded-full bg-[#15172a] flex items-center justify-center">
+                        <Lock className="w-5 h-5 text-[#f9b233]" />
                       </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-purple-200 mb-1.5">
-                        Assigned Candidate Email *
-                      </label>
-                      <div className="relative">
-                        <Mail className="w-4 h-4 text-[#FBBF24] absolute left-4 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="email"
-                          required
-                          value={emailInput}
-                          onChange={(e) => setEmailInput(e.target.value)}
-                          placeholder="name@company.com"
-                          className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-[#070B16]/90 border border-white/15 text-white text-sm font-mono focus:outline-none focus:border-[#F97316] transition-colors"
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={isVerifying || isLoadingData}
-                      className="w-full py-4 rounded-2xl font-extrabold text-sm sm:text-base text-slate-950 bg-gradient-to-r from-[#F97316] to-[#FBBF24] hover:brightness-110 shadow-[0_8px_30px_rgba(249,115,22,0.4)] flex items-center justify-center gap-2 transition-all cursor-pointer"
-                    >
-                      <span>
-                        {isVerifying
-                          ? "Verifying Email & Time Window..."
-                          : "Verify Eligibility & Enter Exam"}
+                      <span className="eyebrow text-[#9a9a90]">
+                        Secure Access
                       </span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </form>
+                    </div>
 
-                  {/* Dynamic Verification Result Card */}
-                  {verificationResult && (
-                    <div
-                      className={`mt-5 p-4 rounded-2xl border animate-cross-morph ${
-                        verificationResult.allowed
-                          ? "bg-emerald-950/35 border-emerald-400/60 text-emerald-100"
-                          : verificationResult.code === "ALREADY_COMPLETED"
-                          ? "bg-purple-950/45 border-purple-400/60 text-purple-100"
-                          : verificationResult.code === "WINDOW_NOT_OPEN"
-                          ? "bg-amber-950/40 border-amber-400/60 text-amber-100"
-                          : "bg-rose-950/40 border-rose-500/60 text-rose-100"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="shrink-0 mt-0.5">
-                          {verificationResult.allowed ? (
-                            <AnimatedCheckIcon className="w-6 h-6" />
-                          ) : (
-                            <AnimatedCrossIcon className="w-6 h-6" />
-                          )}
+                    <h2 className="font-display text-2xl font-semibold text-[#15172a]">
+                      Candidate verification
+                    </h2>
+                    <p className="text-sm text-[#747789] mt-2 mb-7 leading-relaxed">
+                      Access is restricted to candidates invited by the
+                      administrator, from their registered email, within their
+                      assigned window.
+                    </p>
+
+                    <form onSubmit={handleVerifyCandidate} className="space-y-4">
+                      <div>
+                        <label className="eyebrow text-[#9a9a90] block mb-2">
+                          Full name
+                        </label>
+                        <div className="relative">
+                          <User className="w-4 h-4 text-[#c4530a] absolute left-4 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            required
+                            value={nameInput}
+                            onChange={(e) => setNameInput(e.target.value)}
+                            placeholder="Your full name"
+                            className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-[#faf9f6] border border-[#e0dccf] text-[#15172a] text-sm focus:outline-none focus:border-[#e2630f] focus:bg-white transition-colors"
+                          />
                         </div>
-                        <div className="space-y-2 flex-1">
-                          <div className="text-xs font-extrabold uppercase tracking-wider">
-                            {verificationResult.code === "ACCESS_GRANTED" &&
-                              "✓ Authorized Active Window Verified"}
-                            {verificationResult.code === "UNASSIGNED_EMAIL" &&
-                              "✕ Unauthorized Email Address"}
-                            {verificationResult.code === "WINDOW_NOT_OPEN" &&
-                              "⏳ Scheduled Window Not Open Yet"}
-                            {verificationResult.code === "WINDOW_EXPIRED" &&
-                              "✕ Assigned Time Window Expired"}
-                            {verificationResult.code === "ALREADY_COMPLETED" &&
-                              "✓ Assessment Already Completed"}
-                          </div>
-                          <p className="text-xs leading-relaxed opacity-90">
-                            {verificationResult.message}
-                          </p>
+                      </div>
 
-                          {verificationResult.allowed &&
-                            verificationResult.assignment && (
-                              <div className="pt-2">
+                      <div>
+                        <label className="eyebrow text-[#9a9a90] block mb-2">
+                          Registered email
+                        </label>
+                        <div className="relative">
+                          <Mail className="w-4 h-4 text-[#6d28d9] absolute left-4 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="email"
+                            required
+                            value={emailInput}
+                            onChange={(e) => setEmailInput(e.target.value)}
+                            placeholder="name@company.com"
+                            className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-[#faf9f6] border border-[#e0dccf] text-[#15172a] text-sm font-data focus:outline-none focus:border-[#e2630f] focus:bg-white transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isVerifying || isLoadingData}
+                        className="w-full group inline-flex items-center justify-center gap-2.5 py-4 rounded-xl bg-[#15172a] text-white font-medium hover:bg-[#242740] shadow-md transition-all cursor-pointer disabled:opacity-60"
+                      >
+                        <span>
+                          {isVerifying ? "Verifying…" : "Verify eligibility"}
+                        </span>
+                        <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                      </button>
+                    </form>
+
+                    {/* result */}
+                    {verificationResult && (
+                      <div
+                        className={`mt-5 p-4 rounded-2xl border fade-soft ${
+                          verificationResult.allowed
+                            ? "bg-emerald-50/70 border-emerald-200"
+                            : verificationResult.code === "ALREADY_COMPLETED"
+                            ? "bg-violet-50/70 border-violet-200"
+                            : verificationResult.code === "WINDOW_NOT_OPEN"
+                            ? "bg-amber-50/70 border-amber-200"
+                            : "bg-rose-50/70 border-rose-200"
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="shrink-0 mt-0.5">
+                            {verificationResult.allowed ? (
+                              <CheckMark className="w-6 h-6" />
+                            ) : (
+                              <CrossMark className="w-6 h-6" />
+                            )}
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <div className="text-sm font-semibold text-[#15172a]">
+                              {verificationResult.code === "ACCESS_GRANTED" &&
+                                "Access granted"}
+                              {verificationResult.code === "UNASSIGNED_EMAIL" &&
+                                "Email not authorized"}
+                              {verificationResult.code === "WINDOW_NOT_OPEN" &&
+                                "Window not open yet"}
+                              {verificationResult.code === "WINDOW_EXPIRED" &&
+                                "Window expired"}
+                              {verificationResult.code === "ALREADY_COMPLETED" &&
+                                "Already completed"}
+                              {(verificationResult.code === "INVALID_INPUT" ||
+                                verificationResult.code === "SERVER_ERROR") &&
+                                "Unable to verify"}
+                            </div>
+                            <p className="text-xs text-[#5b5e70] leading-relaxed">
+                              {verificationResult.message}
+                            </p>
+
+                            {verificationResult.allowed &&
+                              verificationResult.assignment && (
                                 <button
                                   type="button"
                                   onClick={() => setCandidateStage("briefing")}
-                                  className="w-full py-2.5 px-4 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
+                                  className="mt-1 w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-colors cursor-pointer"
                                 >
-                                  <span>
-                                    Proceed to Official Instruction Sheet &
-                                    Start Test
-                                  </span>
+                                  Continue to protocol
                                   <ArrowRight className="w-4 h-4" />
                                 </button>
-                              </div>
-                            )}
+                              )}
 
-                          {verificationResult.code === "ALREADY_COMPLETED" &&
-                            verificationResult.latestAttempt && (
-                              <div className="pt-2">
+                            {verificationResult.code === "ALREADY_COMPLETED" &&
+                              verificationResult.latestAttempt && (
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -706,130 +604,56 @@ export default function SixSigmaAssessmentPlatform() {
                                     );
                                     setCandidateStage("scorecard");
                                   }}
-                                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#F97316] to-[#FBBF24] text-slate-950 font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
+                                  className="mt-1 w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#15172a] hover:bg-[#242740] text-white text-sm font-medium transition-colors cursor-pointer"
                                 >
                                   <Eye className="w-4 h-4" />
-                                  <span>
-                                    View Official Scorecard (
-                                    {verificationResult.latestAttempt.score}/
-                                    {
-                                      verificationResult.latestAttempt
-                                        .totalQuestions
-                                    }{" "}
-                                    •{" "}
-                                    {
-                                      verificationResult.latestAttempt
-                                        .percentage
-                                    }
-                                    %)
-                                  </span>
+                                  View scorecard (
+                                  {verificationResult.latestAttempt.percentage}%)
                                 </button>
-                              </div>
-                            )}
+                              )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Quick-Test Assigned Emails Bar for Instant Evaluation */}
-                  <div className="mt-6 pt-5 border-t border-white/10">
-                    <div className="flex items-center justify-between mb-2.5">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-[#FBBF24]">
-                        Instant Demo Presets (Click to Test Access States):
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setWorkspaceMode("admin")}
-                        className="text-[11px] font-semibold text-purple-300 hover:text-white underline cursor-pointer"
-                      >
-                        Manage in Admin →
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEmailInput("alex.rivera@mleaps.com");
-                          setNameInput("Alex Rivera");
-                          handleVerifyCandidate(
-                            undefined,
-                            "alex.rivera@mleaps.com",
-                            "Alex Rivera"
-                          );
-                        }}
-                        className="p-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-left transition-all cursor-pointer"
-                      >
-                        <div className="text-[10px] font-extrabold text-emerald-300 uppercase">
-                          ● Active Assigned Window
-                        </div>
-                        <div className="text-xs font-mono text-white truncate">
-                          alex.rivera@mleaps.com
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEmailInput("marcus.vance@mleaps.com");
-                          setNameInput("Marcus Vance");
-                          handleVerifyCandidate(
-                            undefined,
-                            "marcus.vance@mleaps.com",
-                            "Marcus Vance"
-                          );
-                        }}
-                        className="p-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-left transition-all cursor-pointer"
-                      >
-                        <div className="text-[10px] font-extrabold text-amber-300 uppercase">
-                          ⏳ Future Scheduled Window
-                        </div>
-                        <div className="text-xs font-mono text-white truncate">
-                          marcus.vance@mleaps.com
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEmailInput("elena.rostova@mleaps.com");
-                          setNameInput("Elena Rostova");
-                          handleVerifyCandidate(
-                            undefined,
-                            "elena.rostova@mleaps.com",
-                            "Elena Rostova"
-                          );
-                        }}
-                        className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-left transition-all cursor-pointer"
-                      >
-                        <div className="text-[10px] font-extrabold text-rose-300 uppercase">
-                          ✕ Expired Time Window
-                        </div>
-                        <div className="text-xs font-mono text-white truncate">
-                          elena.rostova@mleaps.com
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEmailInput("siddharth.mehta@mleaps.com");
-                          setNameInput("Dr. Siddharth Mehta");
-                          handleVerifyCandidate(
-                            undefined,
-                            "siddharth.mehta@mleaps.com",
-                            "Dr. Siddharth Mehta"
-                          );
-                        }}
-                        className="p-2.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-400/30 text-left transition-all cursor-pointer"
-                      >
-                        <div className="text-[10px] font-extrabold text-purple-200 uppercase">
-                          ✓ Completed (92% Pass)
-                        </div>
-                        <div className="text-xs font-mono text-white truncate">
-                          siddharth.mehta@mleaps.com
-                        </div>
-                      </button>
+                    {/* demo presets */}
+                    <div className="mt-7 pt-6 border-t border-[#eceae4]">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="eyebrow text-[#9a9a90]">
+                          Demo identities
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setWorkspaceMode("admin")}
+                          className="text-xs font-medium text-[#c4530a] hover:underline cursor-pointer"
+                        >
+                          Manage →
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {presets.map((p) => (
+                          <button
+                            key={p.email}
+                            type="button"
+                            onClick={() => {
+                              setEmailInput(p.email);
+                              setNameInput(p.name);
+                              handleVerifyCandidate(undefined, p.email, p.name);
+                            }}
+                            className={`p-2.5 rounded-xl border text-left transition-all hover:shadow-sm cursor-pointer ${p.tone}`}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <p.Icon className="w-3.5 h-3.5" />
+                              <span className="text-[11px] font-semibold">
+                                {p.label}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-[#6b6e80] font-data truncate mt-0.5">
+                              {p.name}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -839,20 +663,16 @@ export default function SixSigmaAssessmentPlatform() {
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-white/10 py-6 px-4 sm:px-8 mt-12 bg-[#070B16]/80">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4 text-xs text-purple-300/70">
+      {/* ============ FOOTER ============ */}
+      <footer className="relative z-10 border-t border-[#e8e4db] bg-[#faf9f6]/70 mt-16 no-print">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 py-8 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="font-bold text-white">Mleaps Consulting</span>
-            <span>•</span>
-            <span>
-              Six Sigma Green Belt Certification Assessment (DMAIC Standard)
-            </span>
+            <MleapsLogo size="xs" />
           </div>
-          <div>
-            25 Multiple Choice Questions • 40 Minutes Duration • 70% (18/25)
-            Passing Threshold
-          </div>
+          <p className="text-xs text-[#9a9a90]">
+            Six Sigma Green Belt Certification · 25 questions · 40 minutes · 70%
+            threshold · © {new Date().getFullYear()} Mleaps Consulting
+          </p>
         </div>
       </footer>
     </div>

@@ -1,23 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
-import { candidateAssignments, examAttempts } from "@/db/schema";
-import { ensureSeeded } from "@/db/seed";
-import { desc } from "drizzle-orm";
+import { getAssignments, getAttempts, createAssignment } from "@/db/storage";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    await ensureSeeded();
-    const assignments = await db
-      .select()
-      .from(candidateAssignments)
-      .orderBy(desc(candidateAssignments.createdAt));
-
-    const attempts = await db
-      .select()
-      .from(examAttempts)
-      .orderBy(desc(examAttempts.submittedAt));
+    const [assignments, attempts] = await Promise.all([
+      getAssignments(),
+      getAttempts(),
+    ]);
 
     return NextResponse.json({ assignments, attempts });
   } catch (error) {
@@ -31,7 +22,6 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    await ensureSeeded();
     const body = await request.json();
     const {
       candidateName,
@@ -75,18 +65,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const [created] = await db
-      .insert(candidateAssignments)
-      .values({
-        candidateName: String(candidateName).trim(),
-        candidateEmail: String(candidateEmail).trim().toLowerCase(),
-        validFrom: fromDate,
-        validUntil: untilDate,
-        durationMinutes: Number(durationMinutes) || 40,
-        status: "assigned",
-        notes: notes ? String(notes).trim() : null,
-      })
-      .returning();
+    const created = await createAssignment({
+      candidateName: String(candidateName).trim(),
+      candidateEmail: String(candidateEmail).trim().toLowerCase(),
+      validFrom: fromDate,
+      validUntil: untilDate,
+      durationMinutes: Number(durationMinutes) || 40,
+      notes: notes ? String(notes).trim() : null,
+    });
 
     return NextResponse.json({ assignment: created }, { status: 201 });
   } catch (error) {

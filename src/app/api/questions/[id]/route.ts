@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
-import { questions } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { updateQuestion, deleteQuestion } from "@/db/storage";
 
 export async function PUT(
   request: NextRequest,
@@ -27,32 +25,27 @@ export async function PUT(
       dmaicPhase,
     } = body;
 
-    const [updated] = await db
-      .update(questions)
-      .set({
-        ...(questionNumber !== undefined
-          ? { questionNumber: Number(questionNumber) }
-          : {}),
-        ...(questionText !== undefined
-          ? { questionText: String(questionText).trim() }
-          : {}),
-        ...(optionA !== undefined ? { optionA: String(optionA).trim() } : {}),
-        ...(optionB !== undefined ? { optionB: String(optionB).trim() } : {}),
-        ...(optionC !== undefined ? { optionC: String(optionC).trim() } : {}),
-        ...(optionD !== undefined ? { optionD: String(optionD).trim() } : {}),
-        ...(correctOption !== undefined
-          ? { correctOption: String(correctOption).toUpperCase().slice(0, 1) }
-          : {}),
-        ...(explanation !== undefined
-          ? { explanation: String(explanation).trim() }
-          : {}),
-        ...(dmaicPhase !== undefined
-          ? { dmaicPhase: String(dmaicPhase).trim() }
-          : {}),
-        updatedAt: new Date(),
-      })
-      .where(eq(questions.id, questionId))
-      .returning();
+    const updated = await updateQuestion(questionId, {
+      ...(questionNumber !== undefined
+        ? { questionNumber: Number(questionNumber) }
+        : {}),
+      ...(questionText !== undefined
+        ? { questionText: String(questionText).trim() }
+        : {}),
+      ...(optionA !== undefined ? { optionA: String(optionA).trim() } : {}),
+      ...(optionB !== undefined ? { optionB: String(optionB).trim() } : {}),
+      ...(optionC !== undefined ? { optionC: String(optionC).trim() } : {}),
+      ...(optionD !== undefined ? { optionD: String(optionD).trim() } : {}),
+      ...(correctOption !== undefined
+        ? { correctOption: String(correctOption).toUpperCase().slice(0, 1) }
+        : {}),
+      ...(explanation !== undefined
+        ? { explanation: String(explanation).trim() }
+        : {}),
+      ...(dmaicPhase !== undefined
+        ? { dmaicPhase: String(dmaicPhase).trim() }
+        : {}),
+    });
 
     if (!updated) {
       return NextResponse.json({ error: "Question not found" }, { status: 404 });
@@ -79,16 +72,12 @@ export async function DELETE(
       return NextResponse.json({ error: "Invalid question ID" }, { status: 400 });
     }
 
-    const [deleted] = await db
-      .delete(questions)
-      .where(eq(questions.id, questionId))
-      .returning();
-
+    const deleted = await deleteQuestion(questionId);
     if (!deleted) {
       return NextResponse.json({ error: "Question not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ deleted });
+    return NextResponse.json({ deleted: true });
   } catch (error) {
     console.error("DELETE /api/questions/[id] error:", error);
     return NextResponse.json(

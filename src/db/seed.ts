@@ -36,13 +36,22 @@ export async function ensureSeeded() {
         .insert(candidateAssignments)
         .values([
           {
-            candidateName: "Alex Rivera",
-            candidateEmail: "alex.rivera@mleaps.com",
-            validFrom: new Date(now.getTime() - 2 * hourMs),
-            validUntil: new Date(now.getTime() + 7 * dayMs),
+            candidateName: "Demo Candidate (Fake Profile)",
+            candidateEmail: "fake.candidate@mleaps.com",
+            validFrom: new Date(now.getTime() - 10 * 60 * 1000),
+            validUntil: new Date(now.getTime() + 48 * hourMs),
             durationMinutes: 40,
             status: "assigned",
-            notes: "Six Sigma Green Belt Wave 1 — Active Authorized Window",
+            notes: "Fake candidate profile active for 48 hours to take the Six Sigma Green Belt mock test.",
+          },
+          {
+            candidateName: "Alex Rivera",
+            candidateEmail: "alex.rivera@mleaps.com",
+            validFrom: new Date(now.getTime() - 10 * 60 * 1000),
+            validUntil: new Date(now.getTime() + 48 * hourMs),
+            durationMinutes: 40,
+            status: "assigned",
+            notes: "Six Sigma Green Belt Wave 1 — Active 48-Hour Assessment Window",
           },
           {
             candidateName: "Priya Nair",

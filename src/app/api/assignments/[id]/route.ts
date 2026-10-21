@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
-import { candidateAssignments } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { updateAssignment, deleteAssignment } from "@/db/storage";
 
 export async function PUT(
   request: NextRequest,
@@ -18,69 +16,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const {
-      candidateName,
-      candidateEmail,
-      validFrom,
-      validUntil,
-      durationMinutes,
-      status,
-      notes,
-      quickAction,
-    } = body;
-
-    const now = new Date();
-    const hourMs = 3600 * 1000;
-
-    let updatePayload: Partial<typeof candidateAssignments.$inferInsert> = {};
-
-    if (quickAction === "activate_now_48h") {
-      updatePayload = {
-        validFrom: new Date(now.getTime() - 5 * 60 * 1000),
-        validUntil: new Date(now.getTime() + 48 * hourMs),
-        status: "assigned",
-      };
-    } else if (quickAction === "extend_24h") {
-      const existing = await db
-        .select()
-        .from(candidateAssignments)
-        .where(eq(candidateAssignments.id, assignmentId));
-      const baseTime =
-        existing[0] && new Date(existing[0].validUntil) > now
-          ? new Date(existing[0].validUntil)
-          : now;
-      updatePayload = {
-        validUntil: new Date(baseTime.getTime() + 24 * hourMs),
-      };
-    } else if (quickAction === "reset_retake") {
-      updatePayload = {
-        status: "assigned",
-        validFrom: new Date(now.getTime() - 5 * 60 * 1000),
-        validUntil: new Date(now.getTime() + 48 * hourMs),
-      };
-    } else {
-      if (candidateName !== undefined)
-        updatePayload.candidateName = String(candidateName).trim();
-      if (candidateEmail !== undefined)
-        updatePayload.candidateEmail = String(candidateEmail)
-          .trim()
-          .toLowerCase();
-      if (validFrom !== undefined)
-        updatePayload.validFrom = new Date(validFrom);
-      if (validUntil !== undefined)
-        updatePayload.validUntil = new Date(validUntil);
-      if (durationMinutes !== undefined)
-        updatePayload.durationMinutes = Number(durationMinutes) || 40;
-      if (status !== undefined) updatePayload.status = String(status);
-      if (notes !== undefined)
-        updatePayload.notes = notes ? String(notes).trim() : null;
-    }
-
-    const [updated] = await db
-      .update(candidateAssignments)
-      .set(updatePayload)
-      .where(eq(candidateAssignments.id, assignmentId))
-      .returning();
+    const updated = await updateAssignment(assignmentId, body);
 
     if (!updated) {
       return NextResponse.json(
@@ -113,11 +49,7 @@ export async function DELETE(
       );
     }
 
-    const [deleted] = await db
-      .delete(candidateAssignments)
-      .where(eq(candidateAssignments.id, assignmentId))
-      .returning();
-
+    const deleted = await deleteAssignment(assignmentId);
     if (!deleted) {
       return NextResponse.json(
         { error: "Assignment not found" },
@@ -125,7 +57,7 @@ export async function DELETE(
       );
     }
 
-    return NextResponse.json({ deleted });
+    return NextResponse.json({ deleted: true });
   } catch (error) {
     console.error("DELETE /api/assignments/[id] error:", error);
     return NextResponse.json(
